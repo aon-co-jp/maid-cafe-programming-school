@@ -1,0 +1,80 @@
+{
+  "name": "maid-cafe-programming-school",
+  "displayName": "Maid Cafe Programming School",
+  "description": "Ask your local aruaru-llm AI teacher, grounded by aruaru-search (unlimited, key-free) + optional GitHub investigation, right from VS Code — the companion extension to open-english. Optionally incorporate your own paid Claude subscription.",
+  "version": "0.1.0",
+  "publisher": "aon-co-jp",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aon-co-jp/maid-cafe-programming-school.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Education"
+  ],
+  "keywords": [
+    "aruaru-llm",
+    "open-english",
+    "aruaru-search",
+    "claude",
+    "ai teacher"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "maidCafeSchool.openMenu",
+        "title": "Maid Cafe School: Open Menu / メニューを開く"
+      },
+      {
+        "command": "maidCafeSchool.askTeacher",
+        "title": "Maid Cafe School: Ask the AI Teacher / AI先生に質問する"
+      },
+      {
+        "command": "maidCafeSchool.toggleStudyWhileDeveloping",
+        "title": "Maid Cafe School: Toggle \"Study While Developing\" / 「同時にプログラムの学習も行なう」の切替"
+      },
+      {
+        "command": "maidCafeSchool.toggleClaudeCombo",
+        "title": "Maid Cafe School: Incorporate My Paid Claude / 有料版のClaudeを組み込む"
+      }
+    ],
+    "configuration": {
+      "title": "Maid Cafe Programming School",
+      "properties": {
+        "maidCafeSchool.aruaruLlmBaseUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:4600",
+          "description": "Base URL of your locally running aruaru-llm instance. / お使いのaruaru-llmの接続先URL。"
+        },
+        "maidCafeSchool.studyWhileDeveloping": {
+          "type": "boolean",
+          "default": false,
+          "description": "Also ask the AI teacher to explain relevant basics while developing (mirrors open-english's checkbox). / 開発を進めながら関連する基礎知識も教えてもらう(open-englishのチェックボックスと同じ)。"
+        },
+        "maidCafeSchool.useGithubInvestigation": {
+          "type": "boolean",
+          "default": true,
+          "description": "Ground answers with a GitHub investigation in addition to aruaru-search's unlimited search. / aruaru-searchの無制限検索に加えてGitHub調査でも回答を裏付ける。"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.0"
+  }
+}
