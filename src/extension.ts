@@ -346,6 +346,7 @@ async function askTeacher(context: vscode.ExtensionContext) {
   if (!question) return;
 
   maybeCheerOnOrder(context, question);
+  maybeCheerUpTroubled(context, question);
 
   let prompt = question;
   if (selectionText) {
@@ -374,6 +375,25 @@ function isOrderRequest(text: string): boolean {
 function maybeCheerOnOrder(context: vscode.ExtensionContext, text: string) {
   if (!isOrderRequest(text)) return;
   speak(context, "おいしくなーれ、萌え萌えキューん。");
+}
+
+// ユーザー指示(2026-09-28)「悩んでいるとみなすと、幼稚園の女の先生風で
+// メイドカフェの女の子風に…『めっ！こらっ！いつまでも、くよくよ悩んで
+// いちゃいけないんだぞ！萌え萌えキューン！』としゃべって」——上記の
+// 注文検出と同じ「固定フレーズを読み上げるだけ」のルールベース分岐。
+const TROUBLED_KEYWORDS = [
+  "悩んで", "悩んでいる", "悩んでいます", "落ち込", "凹んで", "へこんで",
+  "つらい", "辛い", "しんどい", "自信が無い", "自信がない", "不安",
+  "worried", "i'm worried", "i am worried", "depressed", "down", "stressed",
+  "anxious", "struggling", "i feel bad", "no confidence",
+];
+function isTroubledRequest(text: string): boolean {
+  const lower = text.toLowerCase();
+  return TROUBLED_KEYWORDS.some((k) => lower.includes(k.toLowerCase()));
+}
+function maybeCheerUpTroubled(context: vscode.ExtensionContext, text: string) {
+  if (!isTroubledRequest(text)) return;
+  speak(context, "めっ！こらっ！いつまでも、くよくよ悩んでいちゃいけないんだぞ！萌え萌えキューン！");
 }
 
 // 2026-09-28追加(ユーザー指示「フリーランス案件をまとめて検索出来る
