@@ -74,7 +74,7 @@ export function activate(context: vscode.ExtensionContext) {
     speak(
       context,
       "おかえりなさいませ！ご主人様！良い子のみんな元気〜！はーい、これから" +
-        "メイドカフェのお姉さんといっしょにオンラインプログラミングスクール始めるよ！"
+        "メイドカフェのお姉さんといっしょにオンラインプログラミングスクール始めるよ〜！"
     );
   }
 }
