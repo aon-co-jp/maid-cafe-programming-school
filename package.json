@@ -24,7 +24,8 @@
     "ai teacher"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onUri"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -44,6 +45,10 @@
       {
         "command": "maidCafeSchool.toggleClaudeCombo",
         "title": "Maid Cafe School: Incorporate My Paid Claude / 有料版のClaudeを組み込む"
+      },
+      {
+        "command": "maidCafeSchool.toggleSpeakText",
+        "title": "Maid Cafe School: Toggle \"Speak Text\" / 「テキスト内容をしゃべる」の切替"
       }
     ],
     "configuration": {
@@ -63,6 +68,11 @@
           "type": "boolean",
           "default": true,
           "description": "Ground answers with a GitHub investigation in addition to aruaru-search's unlimited search. / aruaru-searchの無制限検索に加えてGitHub調査でも回答を裏付ける。"
+        },
+        "maidCafeSchool.speakText": {
+          "type": "boolean",
+          "default": true,
+          "description": "Speak the greeting and the AI teacher's replies aloud (default ON; your choice is remembered in VS Code settings). / 出迎えの挨拶とAI先生の回答をしゃべる(既定ON、チェックの状態はVS Codeの設定に記憶されます)。"
         }
       }
     }

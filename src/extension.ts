@@ -22,6 +22,7 @@ const CLAUDE_COMBO_PROJECT_NAME_KEY = "maidCafeSchool.claudeComboProjectName";
 
 let statusBarItem: vscode.StatusBarItem;
 let outputChannel: vscode.OutputChannel;
+let ttsPanel: vscode.WebviewPanel | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
   outputChannel = vscode.window.createOutputChannel("Maid Cafe Programming School");
@@ -35,12 +36,80 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("maidCafeSchool.openMenu", () => openMenu(context)),
     vscode.commands.registerCommand("maidCafeSchool.askTeacher", () => askTeacher(context)),
     vscode.commands.registerCommand("maidCafeSchool.toggleStudyWhileDeveloping", () => toggleStudyWhileDeveloping()),
-    vscode.commands.registerCommand("maidCafeSchool.toggleClaudeCombo", () => toggleClaudeCombo(context))
+    vscode.commands.registerCommand("maidCafeSchool.toggleClaudeCombo", () => toggleClaudeCombo(context)),
+    vscode.commands.registerCommand("maidCafeSchool.toggleSpeakText", () => toggleSpeakText()),
+    registerJobImportUriHandler(context)
   );
+
+  // ユーザー指示(2026-09-28): 「最初は『おかえりなさいませ！ご主人様！』
+  // としゃべって。途中も全部しゃべるなら、テキスト内容をしゃべる、の
+  // チェックボックスにチェックデフォルトで付けて」——`speakText`設定
+  // (既定true、package.jsonで定義)がONの場合のみ、起動時に一度だけ
+  // メイドカフェ風の出迎え挨拶を読み上げる。
+  const config = vscode.workspace.getConfiguration("maidCafeSchool");
+  if (config.get<boolean>("speakText", true)) {
+    speak(context, "おかえりなさいませ、ご主人様！");
+  }
 }
 
 export function deactivate() {
-  /* nothing to clean up: this extension holds no persistent connections */
+  ttsPanel?.dispose();
+  ttsPanel = undefined;
+}
+
+async function toggleSpeakText() {
+  const config = vscode.workspace.getConfiguration("maidCafeSchool");
+  const current = config.get<boolean>("speakText", true);
+  await config.update("speakText", !current, vscode.ConfigurationTarget.Global);
+  vscode.window.setStatusBarMessage(
+    !current ? "✅ テキスト内容をしゃべる: ON / Speak text: ON" : "テキスト内容をしゃべる: OFF / Speak text: OFF",
+    4000
+  );
+}
+
+// 正直な開示: VS Code拡張機能本体(Node拡張ホスト)にはWeb Speech API
+// (`speechSynthesis`)が存在しないため、非表示のWebviewパネル1枚を
+// 裏で保持し、そこへ読み上げたいテキストを`postMessage`で送って
+// Webview側(ブラウザ相当のコンテキスト)の`speechSynthesis`で実際に
+// 発話させている——拡張機能自体が独自の音声合成エンジンを持つわけ
+// ではない。
+function ensureTtsPanel(context: vscode.ExtensionContext): vscode.WebviewPanel {
+  if (ttsPanel) return ttsPanel;
+  ttsPanel = vscode.window.createWebviewPanel(
+    "maidCafeSchoolTts",
+    "Maid Cafe School (voice)",
+    { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
+    { enableScripts: true, retainContextWhenHidden: true }
+  );
+  ttsPanel.webview.html = `<!DOCTYPE html><html><body>
+    <script>
+      const vscodeApi = acquireVsCodeApi();
+      window.addEventListener("message", (event) => {
+        const { text, lang } = event.data || {};
+        if (!text || !("speechSynthesis" in window)) return;
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.lang = lang || "ja-JP";
+        window.speechSynthesis.speak(utter);
+      });
+    </script>
+  </body></html>`;
+  ttsPanel.onDidDispose(() => {
+    ttsPanel = undefined;
+  });
+  context.subscriptions.push(ttsPanel);
+  return ttsPanel;
+}
+
+function speak(context: vscode.ExtensionContext, text: string) {
+  const config = vscode.workspace.getConfiguration("maidCafeSchool");
+  if (!config.get<boolean>("speakText", true)) return;
+  try {
+    const panel = ensureTtsPanel(context);
+    panel.webview.postMessage({ text, lang: "ja-JP" });
+  } catch (e) {
+    // 読み上げに失敗してもチャット/開発の本筋は止めない(ベストエフォート)。
+    outputChannel?.appendLine(`(voice) could not speak: ${e instanceof Error ? e.message : String(e)}`);
+  }
 }
 
 function refreshStatusBar(context: vscode.ExtensionContext) {
@@ -65,6 +134,10 @@ async function openMenu(context: vscode.ExtensionContext) {
         label: `$(key) Incorporate my paid Claude: ${comboOn ? "ON" : "OFF"} / 有料版Claudeの組み込み: ${comboOn ? "ON" : "OFF"}`,
         value: "claude",
       },
+      {
+        label: `$(unmute) テキスト内容をしゃべる: ${config.get<boolean>("speakText", true) ? "ON" : "OFF"} / Speak text: ${config.get<boolean>("speakText", true) ? "ON" : "OFF"}`,
+        value: "speak",
+      },
     ],
     { placeHolder: "Maid Cafe Programming School" }
   );
@@ -72,6 +145,7 @@ async function openMenu(context: vscode.ExtensionContext) {
   if (pick.value === "ask") await askTeacher(context);
   else if (pick.value === "study") await toggleStudyWhileDeveloping();
   else if (pick.value === "claude") await toggleClaudeCombo(context);
+  else if (pick.value === "speak") await toggleSpeakText();
 }
 
 async function toggleStudyWhileDeveloping() {
@@ -163,9 +237,61 @@ async function askTeacher(context: vscode.ExtensionContext) {
   if (selectionText) {
     prompt += `\n\nCode (${filePath}):\n\`\`\`\n${selectionText}\n\`\`\``;
   }
+  await sendPromptToTeacher(context, question, prompt);
+}
 
+// 2026-09-28追加(ユーザー指示「フリーランス案件をまとめて検索出来る
+// サイトも新規リポジトリで作成して、そこで得た案件情報の内容をMadeと
+// 一緒にプログラミングを学習しながら一緒に開発出来るシステムとして
+// 下さい」): 新規リポジトリ`aruaru-jobs`(案件集約サイト)の各案件に
+// 付けた「🎓 Maid Cafe Programming Schoolで開発」ボタンが開く
+// `vscode://aon-co-jp.maid-cafe-programming-school/import-job?...`を
+// 受け取り、案件情報(タイトル・URL・抜粋)を質問文へ組み込んで
+// AI先生への依頼を自動生成する。
+export function registerJobImportUriHandler(context: vscode.ExtensionContext) {
+  return vscode.window.registerUriHandler({
+    async handleUri(uri: vscode.Uri) {
+      if (uri.path !== "/import-job") return;
+      const params = new URLSearchParams(uri.query);
+      const title = params.get("title") || "";
+      const url = params.get("url") || "";
+      const snippet = params.get("snippet") || "";
+      if (!title && !url) return;
+      const label = `Job listing: ${title || url}`;
+      let prompt =
+        `以下のフリーランス案件について、一緒にプログラミングを学習しながら開発したいです。 / ` +
+        `I'd like to study programming while developing together, based on this freelance job listing.\n\n` +
+        `Title / タイトル: ${title}\nURL: ${url}`;
+      if (snippet) prompt += `\nSnippet / 抜粋: ${snippet}`;
+      // 案件情報から始める場合は「同時にプログラム学習」を暗黙に希望している
+      // とみなし、設定に関わらずこの1回だけ学習依頼を明示的に添える。
+      prompt +=
+        "\n\n同時にプログラムの学習も行いたいです。開発を進めながら、関連する基礎知識も適宜教えてください。 / " +
+        "I'd also like to study programming at the same time — please teach me relevant basics along the way as we develop this.";
+      await vscode.window.showTextDocument(
+        await vscode.workspace.openTextDocument({ content: prompt, language: "markdown" })
+      );
+      const proceed = await vscode.window.showInformationMessage(
+        `案件を取り込みました: ${title || url} / Imported job listing: ${title || url}\nこの内容でAI先生に相談しますか？ / Ask the AI teacher about this now?`,
+        "Ask now / 今すぐ相談",
+        "Later / あとで"
+      );
+      if (proceed === "Ask now / 今すぐ相談") {
+        await sendPromptToTeacher(context, label, prompt, /* skipStudyToggle */ true);
+      }
+    },
+  });
+}
+
+async function sendPromptToTeacher(
+  context: vscode.ExtensionContext,
+  question: string,
+  promptIn: string,
+  skipStudyToggle = false
+) {
+  let prompt = promptIn;
   const config = vscode.workspace.getConfiguration("maidCafeSchool");
-  if (config.get<boolean>("studyWhileDeveloping", false)) {
+  if (!skipStudyToggle && config.get<boolean>("studyWhileDeveloping", false)) {
     prompt +=
       "\n\n同時にプログラムの学習も行いたいです。開発を進めながら、関連する基礎知識も適宜教えてください。 / " +
       "I'd also like to study programming at the same time — please teach me relevant basics along the way as we develop this.";
@@ -217,6 +343,7 @@ async function askTeacher(context: vscode.ExtensionContext) {
     }
     outputChannel.appendLine("\n--- Answer / 回答 ---");
     outputChannel.appendLine(responseText);
+    speak(context, responseText);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     outputChannel.appendLine(
