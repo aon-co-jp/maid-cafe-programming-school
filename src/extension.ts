@@ -67,10 +67,15 @@ export function activate(context: vscode.ExtensionContext) {
   // としゃべって。途中も全部しゃべるなら、テキスト内容をしゃべる、の
   // チェックボックスにチェックデフォルトで付けて」——`speakText`設定
   // (既定true、package.jsonで定義)がONの場合のみ、起動時に一度だけ
-  // メイドカフェ風の出迎え挨拶を読み上げる。
+  // メイドカフェ風の出迎え挨拶を読み上げる。続けて「良い子のみんな
+  // 元気〜！」からの案内フレーズも(2026-09-28追加指示)。
   const config = vscode.workspace.getConfiguration("maidCafeSchool");
   if (config.get<boolean>("speakText", true)) {
-    speak(context, "おかえりなさいませ、ご主人様！");
+    speak(
+      context,
+      "おかえりなさいませ！ご主人様！良い子のみんな元気〜！はーい、これから" +
+        "メイドカフェのお姉さんといっしょにオンラインプログラミングスクール始めるよ！"
+    );
   }
 }
 
