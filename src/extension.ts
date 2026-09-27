@@ -20,6 +20,27 @@ const CLAUDE_COMBO_ENABLED_KEY = "maidCafeSchool.claudeComboEnabled";
 const CLAUDE_COMBO_NEW_PROJECT_KEY = "maidCafeSchool.claudeComboNewProject";
 const CLAUDE_COMBO_PROJECT_NAME_KEY = "maidCafeSchool.claudeComboProjectName";
 
+// ユーザー指示(2026-09-28)「AIの先生は、基本は、aruaru-llm+無料のGoogleか、
+// ChatGptかGeminiかDeepSeekかGrokか有料のClaudeかを選択可能にして」——
+// 既定は"aruaru"(aruaru-search優先・自信が無い時のみ無料枠Google検索、
+// 既存の`/v1/generate-with-search`経由)。それ以外を選ぶと、
+// aruaru-llmの`/v1/chat-providers/complete-priority`経由でクラウド
+// プロバイダを直接指定する(各プロバイダ自身のAPIキーが必要、
+// Claudeのみ既存の「新規/既存プロジェクト」導線も併用)。
+type AiProvider = "aruaru" | "chatgpt" | "gemini" | "deepseek" | "grok" | "claude";
+const AI_PROVIDER_KEY = "maidCafeSchool.aiProvider";
+const PROVIDER_LABELS: Record<AiProvider, string> = {
+  aruaru: "$(rocket) aruaru-llm + 無料Google検索(既定) / aruaru-llm + free Google search (default)",
+  chatgpt: "$(hubot) ChatGPT",
+  gemini: "$(sparkle) Gemini",
+  deepseek: "$(search) DeepSeek",
+  grok: "$(comment) Grok",
+  claude: "$(key) Claude(有料版・ご自身のAPIキー) / Claude (paid, your own API key)",
+};
+function providerApiKeySecretName(provider: AiProvider): string {
+  return provider === "claude" ? CLAUDE_API_KEY_SECRET : `maidCafeSchool.apiKey.${provider}`;
+}
+
 let statusBarItem: vscode.StatusBarItem;
 let outputChannel: vscode.OutputChannel;
 let ttsPanel: vscode.WebviewPanel | undefined;
@@ -37,6 +58,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("maidCafeSchool.askTeacher", () => askTeacher(context)),
     vscode.commands.registerCommand("maidCafeSchool.toggleStudyWhileDeveloping", () => toggleStudyWhileDeveloping()),
     vscode.commands.registerCommand("maidCafeSchool.toggleClaudeCombo", () => toggleClaudeCombo(context)),
+    vscode.commands.registerCommand("maidCafeSchool.selectAiProvider", () => selectAiProvider(context)),
     vscode.commands.registerCommand("maidCafeSchool.toggleSpeakText", () => toggleSpeakText()),
     registerJobImportUriHandler(context)
   );
@@ -89,7 +111,27 @@ function ensureTtsPanel(context: vscode.ExtensionContext): vscode.WebviewPanel {
         if (!text || !("speechSynthesis" in window)) return;
         const utter = new SpeechSynthesisUtterance(text);
         utter.lang = lang || "ja-JP";
-        window.speechSynthesis.speak(utter);
+        // ユーザー指示(2026-09-28)「声は、アイドルの様で思わせぶりで
+        // 小悪魔の様な怪しい声にして」——正直な開示: Web Speech APIの
+        // SpeechSynthesisUtteranceには「小悪魔っぽさ」を直接指定する
+        // パラメータは無いため、実際に調整できる範囲(pitch/rateと、
+        // 利用可能な音声の中から女性寄りの日本語音声を選ぶこと)で
+        // 近づける。高めのpitch+やや遅めのrateで「思わせぶり」な
+        // 抑揚を演出する。
+        utter.pitch = 1.5;
+        utter.rate = 0.92;
+        const pickVoice = () => {
+          const voices = window.speechSynthesis.getVoices();
+          const ja = voices.filter((v) => v.lang && v.lang.toLowerCase().startsWith("ja"));
+          const female = ja.find((v) => /female|woman|女性|haruka|kyoko|sayaka|nanami/i.test(v.name));
+          utter.voice = female || ja[0] || voices[0] || null;
+          window.speechSynthesis.speak(utter);
+        };
+        if (window.speechSynthesis.getVoices().length > 0) {
+          pickVoice();
+        } else {
+          window.speechSynthesis.onvoiceschanged = pickVoice;
+        }
       });
     </script>
   </body></html>`;
@@ -113,8 +155,9 @@ function speak(context: vscode.ExtensionContext, text: string) {
 }
 
 function refreshStatusBar(context: vscode.ExtensionContext) {
-  const comboOn = context.globalState.get<boolean>(CLAUDE_COMBO_ENABLED_KEY, false);
-  statusBarItem.text = comboOn ? "$(mortar-board) Maid Cafe School (Claude)" : "$(mortar-board) Maid Cafe School";
+  const provider = getAiProvider(context);
+  statusBarItem.text =
+    provider === "aruaru" ? "$(mortar-board) Maid Cafe School" : `$(mortar-board) Maid Cafe School (${provider})`;
   statusBarItem.tooltip = "Maid Cafe Programming School / メイドカフェ・プログラミングスクール";
   statusBarItem.show();
 }
@@ -122,7 +165,6 @@ function refreshStatusBar(context: vscode.ExtensionContext) {
 async function openMenu(context: vscode.ExtensionContext) {
   const config = vscode.workspace.getConfiguration("maidCafeSchool");
   const studying = config.get<boolean>("studyWhileDeveloping", false);
-  const comboOn = context.globalState.get<boolean>(CLAUDE_COMBO_ENABLED_KEY, false);
   const pick = await vscode.window.showQuickPick(
     [
       { label: "$(comment-discussion) Ask the AI Teacher / AI先生に質問する", value: "ask" },
@@ -131,8 +173,8 @@ async function openMenu(context: vscode.ExtensionContext) {
         value: "study",
       },
       {
-        label: `$(key) Incorporate my paid Claude: ${comboOn ? "ON" : "OFF"} / 有料版Claudeの組み込み: ${comboOn ? "ON" : "OFF"}`,
-        value: "claude",
+        label: `$(list-selection) AI先生の選択: ${PROVIDER_LABELS[getAiProvider(context)]} / Choose AI teacher`,
+        value: "provider",
       },
       {
         label: `$(unmute) テキスト内容をしゃべる: ${config.get<boolean>("speakText", true) ? "ON" : "OFF"} / Speak text: ${config.get<boolean>("speakText", true) ? "ON" : "OFF"}`,
@@ -144,8 +186,78 @@ async function openMenu(context: vscode.ExtensionContext) {
   if (!pick) return;
   if (pick.value === "ask") await askTeacher(context);
   else if (pick.value === "study") await toggleStudyWhileDeveloping();
-  else if (pick.value === "claude") await toggleClaudeCombo(context);
+  else if (pick.value === "provider") await selectAiProvider(context);
   else if (pick.value === "speak") await toggleSpeakText();
+}
+
+function getAiProvider(context: vscode.ExtensionContext): AiProvider {
+  return context.globalState.get<AiProvider>(AI_PROVIDER_KEY, "aruaru");
+}
+
+async function selectAiProvider(context: vscode.ExtensionContext) {
+  const current = getAiProvider(context);
+  const pick = await vscode.window.showQuickPick(
+    (Object.keys(PROVIDER_LABELS) as AiProvider[]).map((value) => ({
+      label: `${value === current ? "$(check) " : ""}${PROVIDER_LABELS[value]}`,
+      value,
+    })),
+    { title: "AIの先生を選択してください / Choose your AI teacher", ignoreFocusOut: true }
+  );
+  if (!pick) return;
+  const provider = pick.value as AiProvider;
+
+  if (provider === "aruaru") {
+    await context.globalState.update(AI_PROVIDER_KEY, provider);
+    refreshStatusBar(context);
+    vscode.window.setStatusBarMessage(`✅ AI先生: ${PROVIDER_LABELS[provider]}`, 4000);
+    return;
+  }
+
+  const secretName = providerApiKeySecretName(provider);
+  let apiKey = await context.secrets.get(secretName);
+  if (!apiKey) {
+    apiKey = await vscode.window.showInputBox({
+      title: `${PROVIDER_LABELS[provider]} API Key`,
+      prompt: `${PROVIDER_LABELS[provider]}をご利用の場合、ご自身のAPIキーを入力してください。 / Enter your own API key to use ${provider}.`,
+      password: true,
+      ignoreFocusOut: true,
+    });
+    if (!apiKey) {
+      vscode.window.showWarningMessage(
+        "APIキーが入力されなかったため、AI先生の切り替えを中止しました。 / No API key entered — the AI teacher was not switched."
+      );
+      return;
+    }
+    await context.secrets.store(secretName, apiKey);
+  }
+
+  if (provider === "claude") {
+    // Claudeのみ、既存の「新規/既存プロジェクト」導線を併用する
+    // (open-english web版・従来のtoggleClaudeComboと同じ体験)。
+    const projectChoice = await vscode.window.showQuickPick(
+      [
+        { label: "$(add) New project / 新規プロジェクト", value: true },
+        { label: "$(history) Continue an existing project / 既存プロジェクトの続き", value: false },
+      ],
+      { title: "その時のClaudeは、新規プロジェクトにしますか？ / Start this as a new Claude project?", ignoreFocusOut: true }
+    );
+    if (!projectChoice) return;
+    const previousName = context.globalState.get<string>(CLAUDE_COMBO_PROJECT_NAME_KEY, "");
+    const projectName = await vscode.window.showInputBox({
+      title: projectChoice.value
+        ? "どこのプロジェクト内の会話にしますか？(新しいプロジェクト名) / Which project should this belong to? (new project name)"
+        : "どこのプロジェクト内の会話にしますか？(既存のプロジェクト名) / Which project should this belong to? (existing project name)",
+      value: previousName,
+      ignoreFocusOut: true,
+    });
+    await context.globalState.update(CLAUDE_COMBO_ENABLED_KEY, true);
+    await context.globalState.update(CLAUDE_COMBO_NEW_PROJECT_KEY, projectChoice.value);
+    await context.globalState.update(CLAUDE_COMBO_PROJECT_NAME_KEY, (projectName || "").trim());
+  }
+
+  await context.globalState.update(AI_PROVIDER_KEY, provider);
+  refreshStatusBar(context);
+  vscode.window.setStatusBarMessage(`✅ AI先生: ${PROVIDER_LABELS[provider]}`, 4000);
 }
 
 async function toggleStudyWhileDeveloping() {
@@ -233,11 +345,35 @@ async function askTeacher(context: vscode.ExtensionContext) {
   });
   if (!question) return;
 
+  maybeCheerOnOrder(context, question);
+
   let prompt = question;
   if (selectionText) {
     prompt += `\n\nCode (${filePath}):\n\`\`\`\n${selectionText}\n\`\`\``;
   }
   await sendPromptToTeacher(context, question, prompt);
+}
+
+// ユーザー指示(2026-09-28)「コーヒーやオムライスなどを注文したとみなす
+// と『おいしくなーれ、萌え萌えキューん。』としゃべって」——メイドカフェ
+// ごっこの一環。AI推論は経由せず、固定フレーズを読み上げるだけの
+// ルールベース分岐(既存の`speak()`をそのまま再利用)。
+const ORDER_VERBS = ["注文", "頼", "お願いします", "ください", "order", "get me", "i'll have", "i will have", "can i get"];
+const ORDER_ITEMS = [
+  "コーヒー", "珈琲", "オムライス", "オムレツ", "紅茶", "ケーキ", "パフェ", "パンケーキ", "ハンバーグ",
+  "カレー", "パスタ", "サンドイッチ", "ジュース", "コーラ",
+  "coffee", "omurice", "omelet", "omelette", "tea", "cake", "parfait", "pancake", "hamburger", "curry",
+  "pasta", "sandwich", "juice", "cola",
+];
+function isOrderRequest(text: string): boolean {
+  const lower = text.toLowerCase();
+  const hasVerb = ORDER_VERBS.some((v) => lower.includes(v.toLowerCase()));
+  const hasItem = ORDER_ITEMS.some((i) => lower.includes(i.toLowerCase()));
+  return hasVerb && hasItem;
+}
+function maybeCheerOnOrder(context: vscode.ExtensionContext, text: string) {
+  if (!isOrderRequest(text)) return;
+  speak(context, "おいしくなーれ、萌え萌えキューん。");
 }
 
 // 2026-09-28追加(ユーザー指示「フリーランス案件をまとめて検索出来る
@@ -297,8 +433,8 @@ async function sendPromptToTeacher(
       "I'd also like to study programming at the same time — please teach me relevant basics along the way as we develop this.";
   }
 
-  const comboOn = context.globalState.get<boolean>(CLAUDE_COMBO_ENABLED_KEY, false);
-  if (comboOn) {
+  const provider = getAiProvider(context);
+  if (provider === "claude") {
     const isNewProject = context.globalState.get<boolean>(CLAUDE_COMBO_NEW_PROJECT_KEY, false);
     const projectName = context.globalState.get<string>(CLAUDE_COMBO_PROJECT_NAME_KEY, "");
     const named = projectName ? ` named "${projectName}"` : "";
@@ -317,27 +453,30 @@ async function sendPromptToTeacher(
 
   try {
     let responseText: string;
-    if (comboOn) {
-      const apiKey = await context.secrets.get(CLAUDE_API_KEY_SECRET);
-      const body: Record<string, unknown> = {
-        prompt,
-        providers: ["claude"],
-        use_google_search: true,
-        use_github_search: useGithub,
-      };
-      if (apiKey) body.provider_keys = { claude: apiKey };
-      const data = await postJson(`${baseUrl}/v1/chat-providers/complete-priority`, body);
-      responseText =
-        (data && data.reply && typeof data.reply.text === "string" && data.reply.text) ||
-        (data && typeof data.error === "string" && `⚠ ${data.error}`) ||
-        JSON.stringify(data);
-    } else {
-      // 既定経路: aruaru-search(無制限・APIキー不要)を最優先で試す、
-      // open-english web版と同じ`/v1/generate-with-search`。
+    if (provider === "aruaru") {
+      // 既定経路: aruaru-search(無制限・APIキー不要)を最優先で試し、
+      // 自信が無い時だけ無料枠のGoogle検索で補う、open-english web版と
+      // 同じ`/v1/generate-with-search`。
       const body: Record<string, unknown> = { prompt, max_new_tokens: 96 };
       const data = await postJson(`${baseUrl}/v1/generate-with-search`, body);
       responseText =
         (data && typeof data.completion === "string" && data.completion) ||
+        (data && typeof data.error === "string" && `⚠ ${data.error}`) ||
+        JSON.stringify(data);
+    } else {
+      // クラウドプロバイダ(ChatGPT/Gemini/DeepSeek/Grok/Claude)を
+      // ユーザー自身のAPIキーで直接指定する経路。
+      const apiKey = await context.secrets.get(providerApiKeySecretName(provider));
+      const body: Record<string, unknown> = {
+        prompt,
+        providers: [provider],
+        use_google_search: true,
+        use_github_search: useGithub,
+      };
+      if (apiKey) body.provider_keys = { [provider]: apiKey };
+      const data = await postJson(`${baseUrl}/v1/chat-providers/complete-priority`, body);
+      responseText =
+        (data && data.reply && typeof data.reply.text === "string" && data.reply.text) ||
         (data && typeof data.error === "string" && `⚠ ${data.error}`) ||
         JSON.stringify(data);
     }

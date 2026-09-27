@@ -47,6 +47,10 @@
         "title": "Maid Cafe School: Incorporate My Paid Claude / 有料版のClaudeを組み込む"
       },
       {
+        "command": "maidCafeSchool.selectAiProvider",
+        "title": "Maid Cafe School: Choose AI Teacher (aruaru-llm/ChatGPT/Gemini/DeepSeek/Grok/Claude) / AI先生を選択"
+      },
+      {
         "command": "maidCafeSchool.toggleSpeakText",
         "title": "Maid Cafe School: Toggle \"Speak Text\" / 「テキスト内容をしゃべる」の切替"
       }
