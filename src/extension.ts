@@ -243,6 +243,11 @@ async function toggleStudyBgm(context: vscode.ExtensionContext) {
   );
 }
 
+// ユーザー指示(2026-09-28)「学習中BGMは、ONとOFFとボリューム調整とスキップ、
+// 巻き戻し、早送り、曲名表示可能にして」への対応。ON/OFF(再生/一時停止)・
+// 音量・巻き戻し(-10秒)・早送り(+10秒)は音声要素自体をJSで操作するだけなので
+// Webview側で完結させ、スキップ(次の曲)だけは新しい曲の検索が必要なため
+// `vscodeApi.postMessage`で拡張機能側(`playNextStudyBgmTrack`)へ依頼する。
 function ensureBgmPanel(context: vscode.ExtensionContext): vscode.WebviewPanel {
   if (bgmPanel) return bgmPanel;
   bgmPanel = vscode.window.createWebviewPanel(
@@ -251,24 +256,65 @@ function ensureBgmPanel(context: vscode.ExtensionContext): vscode.WebviewPanel {
     { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
     { enableScripts: true, retainContextWhenHidden: true }
   );
-  bgmPanel.webview.html = `<!DOCTYPE html><html><body style="margin:0;font-family:sans-serif">
-    <audio id="a" autoplay controls style="width:100%"></audio>
-    <p id="credit" style="font-size:0.85em;padding:0 8px"></p>
+  bgmPanel.webview.html = `<!DOCTYPE html><html><body style="margin:0;font-family:sans-serif;padding:8px">
+    <audio id="a" autoplay></audio>
+    <div id="title" style="font-weight:bold;font-size:1.05em;margin-bottom:2px">🎵 —</div>
+    <div id="performer" style="font-size:0.9em;opacity:0.85;margin-bottom:6px">🎤 —</div>
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <button id="rewind" title="Rewind 10s / 10秒巻き戻し">⏪</button>
+      <button id="toggle" title="Play/Pause / 再生・一時停止(ON/OFF)">⏸</button>
+      <button id="forward" title="Fast-forward 10s / 10秒早送り">⏩</button>
+      <button id="skip" title="Skip to next track / 次の曲へスキップ">⏭</button>
+      <label style="margin-left:10px">🔊 <input id="volume" type="range" min="0" max="100" value="80" style="vertical-align:middle" /></label>
+    </div>
+    <p id="credit" style="font-size:0.85em;padding:0;margin-top:6px"></p>
     <script>
       const vscodeApi = acquireVsCodeApi();
       const audio = document.getElementById("a");
+      const title = document.getElementById("title");
+      const performer = document.getElementById("performer");
       const credit = document.getElementById("credit");
+      const toggleBtn = document.getElementById("toggle");
+      audio.volume = 0.8;
+      toggleBtn.addEventListener("click", () => {
+        if (audio.paused) audio.play().catch(() => {});
+        else audio.pause();
+      });
+      audio.addEventListener("play", () => { toggleBtn.textContent = "⏸"; });
+      audio.addEventListener("pause", () => { toggleBtn.textContent = "▶"; });
+      document.getElementById("rewind").addEventListener("click", () => {
+        audio.currentTime = Math.max(0, audio.currentTime - 10);
+      });
+      document.getElementById("forward").addEventListener("click", () => {
+        audio.currentTime = Math.min(audio.duration || Infinity, audio.currentTime + 10);
+      });
+      document.getElementById("volume").addEventListener("input", (e) => {
+        audio.volume = Number(e.target.value) / 100;
+      });
+      document.getElementById("skip").addEventListener("click", () => {
+        vscodeApi.postMessage({ type: "skip" });
+      });
+      audio.addEventListener("ended", () => {
+        vscodeApi.postMessage({ type: "skip" });
+      });
       window.addEventListener("message", (event) => {
-        const { srcUrl, creditText, creditLink } = event.data || {};
+        const { srcUrl, titleText, performerText, creditText, creditLink } = event.data || {};
         if (!srcUrl) return;
         audio.src = srcUrl;
         audio.play().catch(() => {});
+        title.textContent = "🎵 " + (titleText || "—");
+        performer.textContent = "🎤 " + (performerText || "—");
         credit.innerHTML = creditText
           ? (creditLink ? \`\${creditText} — <a href="\${creditLink}">\${creditLink}</a>\` : creditText)
           : "";
       });
     </script>
   </body></html>`;
+  bgmPanel.webview.onDidReceiveMessage((message) => {
+    if (message?.type === "skip") {
+      playNextStudyBgmTrack(context);
+    }
+  });
   bgmPanel.onDidDispose(() => {
     bgmPanel = undefined;
   });
@@ -286,13 +332,15 @@ interface MediaHit {
   stream_url: string | null;
 }
 
+// 直近に再生した曲を連続で選び直さないための簡易な履歴(スキップ連打対策)。
+let lastStudyBgmIdentifier: string | undefined;
+
 // `aruaru-llm`(既存の唯一の接続先、`aruaruLlmBaseUrl`)経由で、`aruaru-search`の
 // `/v1/media-search`(archive.org横断検索、パブリックドメイン・CC0・CC-BY・CC-BY-SAのみ)を
 // 呼び出し、ストリーミング可能な音源をWebview上の<audio>で再生する。この拡張機能自体は
-// 音楽生成・検索を一切実装していない(既存方針どおりの薄いクライアント)。
-async function generateStudyBgm(context: vscode.ExtensionContext) {
-  await maybeShowStudyBgmAttributionNotice(context);
-
+// 音楽生成・検索を一切実装していない(既存方針どおりの薄いクライアント)。コマンドからも
+// Webviewの「⏭ スキップ」ボタン(`ensureBgmPanel`の`onDidReceiveMessage`)からも呼ばれる。
+async function playNextStudyBgmTrack(context: vscode.ExtensionContext) {
   const config = vscode.workspace.getConfiguration("maidCafeSchool");
   const baseUrl = config.get<string>("aruaruLlmBaseUrl", "http://127.0.0.1:4600");
   const prompt = config.get<string>("studyBgm.prompt", "gentle lo-fi piano melody for studying");
@@ -303,7 +351,7 @@ async function generateStudyBgm(context: vscode.ExtensionContext) {
   try {
     const data = await getJson(`${baseUrl}/v1/media-search?q=${encodeURIComponent(prompt)}&n=10`);
     const hits: MediaHit[] = Array.isArray(data?.results) ? data.results : [];
-    const playable = hits.filter((h) => !!h.stream_url);
+    let playable = hits.filter((h) => !!h.stream_url);
     if (playable.length === 0) {
       vscode.window.showWarningMessage(
         "archive.orgでライセンス確認済みの音源が見つかりませんでした(検索語を変えてお試しください)。 / " +
@@ -311,14 +359,25 @@ async function generateStudyBgm(context: vscode.ExtensionContext) {
       );
       return;
     }
+    // 同じ曲が連続しないよう、直前と違う候補があればそちらから選ぶ(スキップ操作向け)。
+    const withoutLast = playable.filter((h) => h.identifier !== lastStudyBgmIdentifier);
+    if (withoutLast.length > 0) playable = withoutLast;
     const hit = playable[Math.floor(Math.random() * playable.length)];
+    lastStudyBgmIdentifier = hit.identifier;
+
     const isPublicDomain = hit.licenseurl.toLowerCase().includes("publicdomain");
     const creditText = isPublicDomain
-      ? `${hit.title} — ${hit.creator} (Public Domain)`
-      : `${hit.title} — ${hit.creator} (${hit.licenseurl}) — 商用利用時は表示義務あり / attribution required for commercial use`;
+      ? "Public Domain"
+      : `${hit.licenseurl} — 商用利用時は表示義務あり / attribution required for commercial use`;
 
     const panel = ensureBgmPanel(context);
-    panel.webview.postMessage({ srcUrl: hit.stream_url, creditText, creditLink: hit.item_url });
+    panel.webview.postMessage({
+      srcUrl: hit.stream_url,
+      titleText: hit.title,
+      performerText: hit.creator,
+      creditText,
+      creditLink: hit.item_url,
+    });
     outputChannel.appendLine(`(study bgm) now playing: ${hit.title} / ${hit.creator} (${hit.licenseurl})`);
     vscode.window.setStatusBarMessage(`✅ 学習中BGM: ${hit.title} / Study BGM playing: ${hit.title}`, 5000);
   } catch (err) {
@@ -328,6 +387,11 @@ async function generateStudyBgm(context: vscode.ExtensionContext) {
         `Could not fetch study BGM: ${message} (check that aruaru-llm is running).`
     );
   }
+}
+
+async function generateStudyBgm(context: vscode.ExtensionContext) {
+  await maybeShowStudyBgmAttributionNotice(context);
+  await playNextStudyBgmTrack(context);
 }
 
 function refreshStatusBar(context: vscode.ExtensionContext) {
