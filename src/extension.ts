@@ -2,7 +2,6 @@ import * as vscode from "vscode";
 import * as http from "http";
 import * as https from "https";
 import * as path from "path";
-import * as cp from "child_process";
 
 // Maid Cafe Programming School — VS Code companion extension for open-english.
 //
@@ -48,28 +47,33 @@ let outputChannel: vscode.OutputChannel;
 let ttsPanel: vscode.WebviewPanel | undefined;
 let bgmPanel: vscode.WebviewPanel | undefined;
 
-// 学習中BGM(open-music-llm/MusicGen連携)。ユーザー指示(2026-09-28)
-// 「MusicGen生成(非商用範囲内)にしましょう、商用化しそうなら、その時に
-// 警告して」への対応。
+// 学習中BGM(aruaru-search/archive.org連携)。ユーザー指示(2026-09-28)
+// 「実際に組み込むのはarchive.orgのライセンス確認済み音源なら商用化しても
+// OKな方でお願いします」への対応——当初検討したopen-music-llm(MusicGen、
+// CC-BY-NC限定=非商用限定)ではなく、`aruaru-search`の`/v1/media-search`
+// (archive.org横断検索、パブリックドメイン・CC0・CC-BY・CC-BY-SAのみに
+// 既に絞り込み済み——CC-BY-NC等は`aruaru-search`側で除外される)を
+// `aruaru-llm`経由でプロキシして使う(この拡張機能は`aruaru-llm`にしか
+// 直接繋がない、という既存アーキテクチャ方針を維持)。
 //
-// 正直な開示: このBGM機能自体、および将来この拡張機能自体が有料化・
-// 広告付き等で商用化されたかどうかを、コードから技術的に検出する手段は
-// 無い(open-music-llm側のCLAUDE.md/READMEにも同じ開示あり)。そのため
-// ここでは「非商用利用であることの確認」を初回ONの時と、一定期間
-// (30日)ごとに毎回再度求める、という形で「警告し続ける」仕組みにして
-// いる——一度確認したら二度と出ない、という設計にはしていない。
-const STUDY_BGM_LICENSE_CONFIRMED_AT_KEY = "maidCafeSchool.studyBgm.licenseConfirmedAt";
-const STUDY_BGM_RECONFIRM_INTERVAL_MS = 30 * 24 * 60 * 60 * 1000; // 30日
+// ライセンスに関する重要な注意(ユーザー指示: 2026-09-28「商用化の際は
+// そのライセンスを明示する義務がある事を英語と日本語を明示」): パブリック
+// ドメイン以外(CC-BY・CC-BY-SA)の音源を商用利用する場合、作成者の
+// クレジット表示とライセンスへのリンクを表示する法的な義務がある。
+// 詳細・世界約130ヶ国語の通知は`ATTRIBUTION_NOTICE_URL`を参照。
+const ATTRIBUTION_NOTICE_URL = "https://github.com/aon-co-jp/aruaru-search/blob/main/ATTRIBUTION_NOTICE.md";
 
 const STUDY_BGM_LICENSE_NOTICE =
-  "🎵 Study BGM uses open-music-llm (MusicGen). The model weights (facebook/musicgen-*) are " +
-  "CC-BY-NC 4.0 — NON-COMMERCIAL USE ONLY. If this extension, or your own project, ever becomes " +
-  "commercial (a paid extension, ads, a paid product, etc.), you must stop using MusicGen-generated " +
-  "audio in it and either fine-tune/train your own model or switch to a commercially-licensed one.\n\n" +
-  "🎵 学習用BGMはopen-music-llm(MusicGen)を使用します。モデル重み(facebook/musicgen-*)は" +
-  "CC-BY-NC 4.0——非商用利用限定です。この拡張機能自体、またはご自身のプロジェクトが" +
-  "将来商用化(有料化・広告付与・有料製品化等)された場合、生成した音声の利用を中止し、" +
-  "自前でのファインチューニング/学習、または商用利用可能な別モデルへの切り替えが必要です。";
+  "🎵 Study BGM streams tracks from archive.org (via aruaru-search), limited to Public Domain, " +
+  "CC0, CC-BY, and CC-BY-SA licenses only — commercial use is allowed. " +
+  "IMPORTANT: for non-Public-Domain tracks (CC-BY / CC-BY-SA), commercial use legally requires you " +
+  "to display attribution (credit the creator, and link to the license) — see the full notice " +
+  `(EN/JA + ~130 languages): ${ATTRIBUTION_NOTICE_URL}\n\n` +
+  "🎵 学習用BGMは(aruaru-search経由で)archive.orgの音源をストリーミングします。パブリック" +
+  "ドメイン・CC0・CC-BY・CC-BY-SAのみに限定済みで、商用利用も可能です。" +
+  "重要: パブリックドメイン以外(CC-BY・CC-BY-SA)の音源を商用利用する場合、作成者の" +
+  "クレジット表示とライセンスへのリンク表示が法的に義務付けられています——詳細" +
+  `(日英+世界約130ヶ国語)はこちら: ${ATTRIBUTION_NOTICE_URL}`;
 
 export function activate(context: vscode.ExtensionContext) {
   outputChannel = vscode.window.createOutputChannel("Maid Cafe Programming School");
@@ -201,37 +205,36 @@ function speak(context: vscode.ExtensionContext, text: string) {
   }
 }
 
-// 非商用利用の確認が必要かどうか(未確認、または前回確認からSTUDY_BGM_
-// RECONFIRM_INTERVAL_MS以上経過している場合はtrue)。
-function studyBgmNeedsReconfirmation(context: vscode.ExtensionContext): boolean {
-  const confirmedAt = context.globalState.get<number>(STUDY_BGM_LICENSE_CONFIRMED_AT_KEY, 0);
-  return Date.now() - confirmedAt > STUDY_BGM_RECONFIRM_INTERVAL_MS;
+// 通知の表示が必要かどうか(未表示、または前回表示から30日以上経過している場合はtrue)。
+// ユーザー指示「商用化しそうなら、その時に警告して」への対応——実際に商用化したかどうかを
+// コードから検出する手段は無いため、定期的に思い出させる形にしている(初回有効化時+30日毎)。
+const STUDY_BGM_NOTICE_SHOWN_AT_KEY = "maidCafeSchool.studyBgm.noticeShownAt";
+const STUDY_BGM_NOTICE_INTERVAL_MS = 30 * 24 * 60 * 60 * 1000; // 30日
+
+function studyBgmNeedsNotice(context: vscode.ExtensionContext): boolean {
+  const shownAt = context.globalState.get<number>(STUDY_BGM_NOTICE_SHOWN_AT_KEY, 0);
+  return Date.now() - shownAt > STUDY_BGM_NOTICE_INTERVAL_MS;
 }
 
-// CC-BY-NC 4.0の通知を表示し、ユーザーが明示的に確認するまで先へ
-// 進ませない(open-music-llm側のgenerate.pyと同じ設計思想——商用利用の
-// 実際の検出は技術的に不可能なため、確認を求めることしかできない)。
-async function ensureStudyBgmNonCommercialConfirmation(context: vscode.ExtensionContext): Promise<boolean> {
-  if (!studyBgmNeedsReconfirmation(context)) return true;
-  const CONFIRM = "I confirm non-commercial use / 非商用利用であることを確認する";
-  const choice = await vscode.window.showWarningMessage(STUDY_BGM_LICENSE_NOTICE, { modal: true }, CONFIRM);
-  if (choice !== CONFIRM) return false;
-  await context.globalState.update(STUDY_BGM_LICENSE_CONFIRMED_AT_KEY, Date.now());
-  return true;
+// ライセンス通知(EN/JA、+ATTRIBUTION_NOTICE_URLへのリンクで世界約130ヶ国語)を表示する。
+// ブロッキングではない(archive.orgのPD/CC0/CC-BY/CC-BY-SAは商用利用そのものは許可されている
+// ため、MusicGen(CC-BY-NC限定)の時と違い機能自体を止める必要は無い——あくまで
+// 「表示義務があることを定期的に思い出させる」通知)。
+async function maybeShowStudyBgmAttributionNotice(context: vscode.ExtensionContext): Promise<void> {
+  if (!studyBgmNeedsNotice(context)) return;
+  const OPEN_NOTICE = "Open full notice (EN/JA + ~130 languages) / 通知全文を開く(日英+世界約130ヶ国語)";
+  const choice = await vscode.window.showInformationMessage(STUDY_BGM_LICENSE_NOTICE, OPEN_NOTICE);
+  await context.globalState.update(STUDY_BGM_NOTICE_SHOWN_AT_KEY, Date.now());
+  if (choice === OPEN_NOTICE) {
+    await vscode.env.openExternal(vscode.Uri.parse(ATTRIBUTION_NOTICE_URL));
+  }
 }
 
 async function toggleStudyBgm(context: vscode.ExtensionContext) {
   const config = vscode.workspace.getConfiguration("maidCafeSchool");
   const current = config.get<boolean>("studyBgm.enabled", false);
   if (!current) {
-    const confirmed = await ensureStudyBgmNonCommercialConfirmation(context);
-    if (!confirmed) {
-      vscode.window.setStatusBarMessage(
-        "学習中BGMは有効化されませんでした(非商用利用の確認が必要です)。 / Study BGM was not enabled (non-commercial use confirmation required).",
-        5000
-      );
-      return;
-    }
+    await maybeShowStudyBgmAttributionNotice(context);
   }
   await config.update("studyBgm.enabled", !current, vscode.ConfigurationTarget.Global);
   vscode.window.setStatusBarMessage(
@@ -248,16 +251,21 @@ function ensureBgmPanel(context: vscode.ExtensionContext): vscode.WebviewPanel {
     { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
     { enableScripts: true, retainContextWhenHidden: true }
   );
-  bgmPanel.webview.html = `<!DOCTYPE html><html><body style="margin:0">
-    <audio id="a" autoplay loop controls style="width:100%"></audio>
+  bgmPanel.webview.html = `<!DOCTYPE html><html><body style="margin:0;font-family:sans-serif">
+    <audio id="a" autoplay controls style="width:100%"></audio>
+    <p id="credit" style="font-size:0.85em;padding:0 8px"></p>
     <script>
       const vscodeApi = acquireVsCodeApi();
       const audio = document.getElementById("a");
+      const credit = document.getElementById("credit");
       window.addEventListener("message", (event) => {
-        const { srcUri } = event.data || {};
-        if (!srcUri) return;
-        audio.src = srcUri;
+        const { srcUrl, creditText, creditLink } = event.data || {};
+        if (!srcUrl) return;
+        audio.src = srcUrl;
         audio.play().catch(() => {});
+        credit.innerHTML = creditText
+          ? (creditLink ? \`\${creditText} — <a href="\${creditLink}">\${creditLink}</a>\` : creditText)
+          : "";
       });
     </script>
   </body></html>`;
@@ -268,75 +276,58 @@ function ensureBgmPanel(context: vscode.ExtensionContext): vscode.WebviewPanel {
   return bgmPanel;
 }
 
-// open-music-llm(https://github.com/aon-co-jp/open-music-llm)の
-// python/generate.pyをサブプロセスとして呼び出し、生成されたWAVを
-// Webview上の<audio>で再生する。正直な開示: MusicGenの実際の推論は
-// CPUでも数十秒〜数分かかることがあり、初回はHugging Face Hubから
-// モデル重みのダウンロードも発生する(ネットワーク・ディスク容量が必要)。
+interface MediaHit {
+  identifier: string;
+  title: string;
+  creator: string;
+  date: string;
+  licenseurl: string;
+  item_url: string;
+  stream_url: string | null;
+}
+
+// `aruaru-llm`(既存の唯一の接続先、`aruaruLlmBaseUrl`)経由で、`aruaru-search`の
+// `/v1/media-search`(archive.org横断検索、パブリックドメイン・CC0・CC-BY・CC-BY-SAのみ)を
+// 呼び出し、ストリーミング可能な音源をWebview上の<audio>で再生する。この拡張機能自体は
+// 音楽生成・検索を一切実装していない(既存方針どおりの薄いクライアント)。
 async function generateStudyBgm(context: vscode.ExtensionContext) {
-  const confirmed = await ensureStudyBgmNonCommercialConfirmation(context);
-  if (!confirmed) return;
+  await maybeShowStudyBgmAttributionNotice(context);
 
   const config = vscode.workspace.getConfiguration("maidCafeSchool");
-  const repoPath = config.get<string>("studyBgm.openMusicLlmPath", "").trim();
-  if (!repoPath) {
-    const choice = await vscode.window.showWarningMessage(
-      "open-music-llmのローカルclone先が未設定です。設定(maidCafeSchool.studyBgm.openMusicLlmPath)にパスを指定してください。 / " +
-        "The local path to open-music-llm is not set. Please set maidCafeSchool.studyBgm.openMusicLlmPath.",
-      "Open Settings / 設定を開く"
-    );
-    if (choice) {
-      await vscode.commands.executeCommand("workbench.action.openSettings", "maidCafeSchool.studyBgm");
-    }
-    return;
-  }
-
-  const pythonPath = config.get<string>("studyBgm.pythonPath", "python");
+  const baseUrl = config.get<string>("aruaruLlmBaseUrl", "http://127.0.0.1:4600");
   const prompt = config.get<string>("studyBgm.prompt", "gentle lo-fi piano melody for studying");
-  const scriptPath = path.join(repoPath, "python", "generate.py");
-  const outputPath = path.join(context.globalStorageUri.fsPath, "study-bgm.wav");
-  await vscode.workspace.fs.createDirectory(context.globalStorageUri);
 
   outputChannel.show(true);
-  outputChannel.appendLine(`(study bgm) generating: ${pythonPath} ${scriptPath} --confirm-non-commercial-use "${prompt}" ${outputPath}`);
+  outputChannel.appendLine(`(study bgm) searching archive.org via ${baseUrl}/v1/media-search?q=${prompt}`);
 
-  await vscode.window.withProgress(
-    {
-      location: vscode.ProgressLocation.Notification,
-      title: "学習中BGMを生成しています(MusicGen)... / Generating study BGM (MusicGen)...",
-      cancellable: false,
-    },
-    () =>
-      new Promise<void>((resolve) => {
-        const child = cp.spawn(
-          pythonPath,
-          [scriptPath, "--confirm-non-commercial-use", prompt, outputPath],
-          { cwd: repoPath, env: { ...process.env, USE_TF: "0", USE_FLAX: "0" } }
-        );
-        child.stdout.on("data", (d) => outputChannel.appendLine(`(study bgm) ${d.toString().trim()}`));
-        child.stderr.on("data", (d) => outputChannel.appendLine(`(study bgm) ${d.toString().trim()}`));
-        child.on("error", (err) => {
-          vscode.window.showErrorMessage(
-            `学習中BGMの生成に失敗しました: ${err.message} / Failed to generate study BGM: ${err.message}`
-          );
-          resolve();
-        });
-        child.on("close", (code) => {
-          if (code === 0) {
-            const panel = ensureBgmPanel(context);
-            const srcUri = panel.webview.asWebviewUri(vscode.Uri.file(outputPath));
-            panel.webview.postMessage({ srcUri: srcUri.toString() });
-            vscode.window.setStatusBarMessage("✅ 学習中BGMを生成・再生しました / Study BGM generated and playing", 4000);
-          } else {
-            vscode.window.showErrorMessage(
-              `学習中BGMの生成に失敗しました(exit code ${code})。出力パネルを確認してください。 / ` +
-                `Study BGM generation failed (exit code ${code}). Check the output panel.`
-            );
-          }
-          resolve();
-        });
-      })
-  );
+  try {
+    const data = await getJson(`${baseUrl}/v1/media-search?q=${encodeURIComponent(prompt)}&n=10`);
+    const hits: MediaHit[] = Array.isArray(data?.results) ? data.results : [];
+    const playable = hits.filter((h) => !!h.stream_url);
+    if (playable.length === 0) {
+      vscode.window.showWarningMessage(
+        "archive.orgでライセンス確認済みの音源が見つかりませんでした(検索語を変えてお試しください)。 / " +
+          "No licensed tracks found on archive.org (try a different search prompt)."
+      );
+      return;
+    }
+    const hit = playable[Math.floor(Math.random() * playable.length)];
+    const isPublicDomain = hit.licenseurl.toLowerCase().includes("publicdomain");
+    const creditText = isPublicDomain
+      ? `${hit.title} — ${hit.creator} (Public Domain)`
+      : `${hit.title} — ${hit.creator} (${hit.licenseurl}) — 商用利用時は表示義務あり / attribution required for commercial use`;
+
+    const panel = ensureBgmPanel(context);
+    panel.webview.postMessage({ srcUrl: hit.stream_url, creditText, creditLink: hit.item_url });
+    outputChannel.appendLine(`(study bgm) now playing: ${hit.title} / ${hit.creator} (${hit.licenseurl})`);
+    vscode.window.setStatusBarMessage(`✅ 学習中BGM: ${hit.title} / Study BGM playing: ${hit.title}`, 5000);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    vscode.window.showErrorMessage(
+      `学習中BGMの取得に失敗しました: ${message}(aruaru-llmが起動しているかご確認ください) / ` +
+        `Could not fetch study BGM: ${message} (check that aruaru-llm is running).`
+    );
+  }
 }
 
 function refreshStatusBar(context: vscode.ExtensionContext) {
@@ -372,7 +363,7 @@ async function openMenu(context: vscode.ExtensionContext) {
       { label: "$(globe) 日本語・英語・世界の言語を学ぶ / Learn Japanese, English, or a World Language", value: "world" },
       { label: "$(cloud-download) 関連リポジトリのセットアップ / Set Up Related Repos", value: "setup-repos" },
       {
-        label: `$(unmute) 学習中BGM(MusicGen、非商用限定): ${vscode.workspace.getConfiguration("maidCafeSchool").get<boolean>("studyBgm.enabled", false) ? "ON" : "OFF"} / Study BGM (MusicGen, non-commercial)`,
+        label: `$(unmute) 学習中BGM(archive.org、商用利用可): ${vscode.workspace.getConfiguration("maidCafeSchool").get<boolean>("studyBgm.enabled", false) ? "ON" : "OFF"} / Study BGM (archive.org, commercial-safe)`,
         value: "bgm-toggle",
       },
       { label: "$(play) 学習中BGMを今すぐ生成・再生 / Generate & Play Study BGM Now", value: "bgm-generate" },
@@ -1466,6 +1457,43 @@ function postJson(url: string, body: unknown): Promise<any> {
     req.on("timeout", () => req.destroy(new Error("request timed out")));
     req.on("error", reject);
     req.write(payload);
+    req.end();
+  });
+}
+
+function getJson(url: string): Promise<any> {
+  return new Promise((resolve, reject) => {
+    let target: URL;
+    try {
+      target = new URL(url);
+    } catch (e) {
+      reject(new Error(`invalid URL: ${url}`));
+      return;
+    }
+    const client = target.protocol === "https:" ? https : http;
+    const req = client.request(
+      {
+        hostname: target.hostname,
+        port: target.port || (target.protocol === "https:" ? 443 : 80),
+        path: target.pathname + target.search,
+        method: "GET",
+        timeout: 30000,
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk) => chunks.push(chunk));
+        res.on("end", () => {
+          const text = Buffer.concat(chunks).toString("utf-8");
+          try {
+            resolve(text ? JSON.parse(text) : {});
+          } catch (e) {
+            resolve({ raw: text });
+          }
+        });
+      }
+    );
+    req.on("timeout", () => req.destroy(new Error("request timed out")));
+    req.on("error", reject);
     req.end();
   });
 }

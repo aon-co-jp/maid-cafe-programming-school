@@ -59,24 +59,34 @@ VS Code拡張機能。`open-english`/`aruaru-llm`の既存API
      調整をしている(ユーザー指示、正直な開示: 実際の声質はOS/
      ブラウザの提供する音声次第で保証はできない)。
 
-## HANDOFF(2026-09-28 学習中BGM機能を追加)
+## HANDOFF(2026-09-28 学習中BGM機能を追加、後にopen-music-llm→archive.orgへ切替)
 
-- ユーザー提案(「学習中にBGMが選択出来るの良いね」)を受け、
-  [`open-music-llm`](https://github.com/aon-co-jp/open-music-llm)(MusicGen)を
-  サブプロセスとして呼び出す「学習中BGM」機能を追加(`toggleStudyBgm`/
-  `generateStudyBgm`、設定`maidCafeSchool.studyBgm.*`)。
-- ユーザー指示「MusicGen生成(非商用範囲内)にしましょう、商用化しそうなら、その時に
-  警告して」への対応: `STUDY_BGM_LICENSE_NOTICE`(英日併記)を初回有効化時、および
-  前回確認から30日経過するごとに`showWarningMessage(..., {modal: true})`で表示し、
-  明示的な確認("I confirm non-commercial use / 非商用利用であることを確認する")
-  ボタンを押すまで機能を有効化しない設計(`ensureStudyBgmNonCommercialConfirmation`)。
-  **正直な開示**: 実際に商用化したかどうかをコードから検出する手段は無いため、
-  あくまで「定期的に思い出させる」自己申告制の仕組み。
-- 実装は`open-music-llm/python/generate.py`(同日実装済みの`--confirm-non-commercial-use`
-  ゲート)を`child_process.spawn`で呼ぶだけの薄いラッパー(音楽生成AIはこの拡張機能自体
-  には実装しない、既存方針どおり)。生成したWAVは非表示Webview上の`<audio>`で再生。
+- ユーザー提案(「学習中にBGMが選択出来るの良いね」)を受け、当初は
+  [`open-music-llm`](https://github.com/aon-co-jp/open-music-llm)(MusicGen、
+  CC-BY-NC 4.0=非商用限定)をサブプロセス呼び出しする「学習中BGM」機能を実装したが、
+  ユーザー指示「実際に組み込むのはarchive.orgのライセンス確認済み音源なら商用化しても
+  OKな方でお願いします」を受け、**同日中に実装を差し替え**、MusicGenのコードは
+  この拡張機能からは削除した(`open-music-llm`リポジトリ自体はそのまま残す)。
+- **現在の実装**: `aruaru-search`の`/v1/media-search`(archive.org横断検索、
+  パブリックドメイン・CC0・CC-BY・CC-BY-SAのみ——CC-BY-NC等は`aruaru-search`側で
+  既に除外済み)を、既存の唯一の接続先である`aruaru-llm`経由でプロキシする形で呼ぶ
+  (`aruaru-llm`側に新規追加した`GET /v1/media-search`、`src/web_search.rs`の
+  `media_search`関数、`src/main.rs`のルート登録、コミット待ち)。この拡張機能自体は
+  検索・音楽生成AIを一切実装しない、という既存方針を維持。
+- **ライセンス表示義務の通知**(ユーザー指示「商用化の際はそのライセンスを明示する
+  義務がある事を英語と日本語を明示でリンクをクリックすると世界約130ケ国語で表示
+  されるようにして」への対応): `STUDY_BGM_LICENSE_NOTICE`(英日併記、非ブロッキング
+  ——archive.orgのPD/CC0/CC-BY/CC-BY-SAは商用利用そのものは許可されているため、
+  MusicGenの時と違い機能自体は止めない)を初回有効化時・以後30日毎に表示し、
+  「Open full notice」を押すと
+  [`aruaru-search`の`ATTRIBUTION_NOTICE.md`](https://github.com/aon-co-jp/aruaru-search/blob/main/ATTRIBUTION_NOTICE.md)
+  (日英正本+`open-english`の130言語登録簿と同じコード一覧を再利用したAI翻訳、
+  ネイティブ検証前)を`vscode.env.openExternal`で開く。再生中の音源のクレジット
+  (`creator`)・ライセンスURL(`licenseurl`)はBGMパネル内に常時表示する
+  (`generateStudyBgm`→`ensureBgmPanel`の`postMessage`)。
 - `npm run compile`(TypeScript型検査)のみ確認済み、VS Code拡張機能開発ホストでの
-  実クリック確認は未実施(既存の制約と同じ、下記参照)。
+  実クリック確認・`aruaru-llm`/`aruaru-search`の実サーバー起動によるE2E確認は
+  未実施(このセッション環境の制約、下記参照)。
 
 ## 正直な開示・既知の制約
 

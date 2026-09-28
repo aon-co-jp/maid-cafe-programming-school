@@ -80,7 +80,7 @@
       },
       {
         "command": "maidCafeSchool.toggleStudyBgm",
-        "title": "Maid Cafe School: Toggle Study BGM (MusicGen, non-commercial) / 学習中BGMの切替(MusicGen、非商用限定)"
+        "title": "Maid Cafe School: Toggle Study BGM (archive.org, commercial-safe) / 学習中BGMの切替(archive.org、商用利用可)"
       },
       {
         "command": "maidCafeSchool.generateStudyBgm",
@@ -118,22 +118,12 @@
         "maidCafeSchool.studyBgm.enabled": {
           "type": "boolean",
           "default": false,
-          "description": "Generate study BGM locally with open-music-llm (MusicGen). NON-COMMERCIAL USE ONLY — the model weights are CC-BY-NC 4.0; see README for the license notice. / open-music-llm(MusicGen)でローカルに学習用BGMを生成する。非商用利用限定——モデル重みはCC-BY-NC 4.0(README参照)。"
+          "description": "Stream study BGM from archive.org (via aruaru-search, Public Domain/CC0/CC-BY/CC-BY-SA only — commercial use allowed, but CC-BY/CC-BY-SA legally require attribution). / archive.orgから学習中BGMをストリーミングする(aruaru-search経由、パブリックドメイン/CC0/CC-BY/CC-BY-SAのみ——商用利用可、ただしCC-BY/CC-BY-SAは表示義務あり)。"
         },
         "maidCafeSchool.studyBgm.prompt": {
           "type": "string",
-          "default": "gentle lo-fi piano melody for studying",
-          "description": "Text prompt describing the BGM to generate. / 生成するBGMの内容を表す説明文。"
-        },
-        "maidCafeSchool.studyBgm.openMusicLlmPath": {
-          "type": "string",
-          "default": "",
-          "description": "Local path to a clone of https://github.com/aon-co-jp/open-music-llm (must contain python/generate.py). / open-music-llm(https://github.com/aon-co-jp/open-music-llm)のローカルclone先(python/generate.pyが必要)。"
-        },
-        "maidCafeSchool.studyBgm.pythonPath": {
-          "type": "string",
-          "default": "python",
-          "description": "Python executable to run open-music-llm's generate.py (ideally the venv with torch/transformers installed). / open-music-llmのgenerate.pyを実行するPython(torch/transformers導入済みのvenv推奨)。"
+          "default": "lo-fi piano",
+          "description": "Search terms for the archive.org BGM search (song/performer/composer keywords). / archive.org BGM検索の検索語(曲名/演奏者/作曲者のキーワード)。"
         }
       }
     }

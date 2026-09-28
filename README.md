@@ -36,22 +36,27 @@
   (コマンドパレットからいつでも呼び出し可能)。**正直な開示**: cloneまで
   行いますが、各リポジトリのビルド・起動は行いません——それぞれの
   READMEに従ってご自身で行ってください。
-- **学習中BGM(MusicGen、非商用限定)**: コマンドパレット「学習中BGMを今すぐ生成・再生」、
-  または`maidCafeSchool.studyBgm.enabled`設定から、[`open-music-llm`](https://github.com/aon-co-jp/open-music-llm)
-  (MusicGen)でBGMをローカル生成して再生できます。**ライセンスに関する重要な注意
-  (Important license notice)**: MusicGenの学習済み重み(`facebook/musicgen-*`)は
-  **CC-BY-NC 4.0(非商用利用限定)** です。この機能は初回有効化時、および30日ごとに、
-  英語・日本語併記のライセンス通知を表示し、明示的な確認を求めます——**この拡張機能自体、
-  またはご自身のプロジェクトが将来商用化(有料化・広告付与等)された場合は、生成した音声の
-  利用を中止してください**。実際の商用/非商用利用をコードから技術的に検出する手段は
-  無いため、あくまで利用者自身の申告・確認に基づく仕組みです(詳細は
-  [open-music-llmのCLAUDE.md](https://github.com/aon-co-jp/open-music-llm/blob/main/CLAUDE.md)
-  も参照)。
-  *(EN) The MusicGen weights (`facebook/musicgen-*`) are CC-BY-NC 4.0 — non-commercial use
-  only. This feature shows a bilingual license notice and requires explicit confirmation on
-  first enable and again every 30 days. If this extension, or your own project, ever becomes
-  commercial, stop using MusicGen-generated audio in it. There is no technical way to detect
-  actual commercial use from code — this is a self-attestation mechanism, not enforcement.*
+- **学習中BGM(archive.org、商用利用可)**: コマンドパレット「学習中BGMを今すぐ生成・再生」、
+  または`maidCafeSchool.studyBgm.enabled`設定から、[`aruaru-search`](https://github.com/aon-co-jp/aruaru-search)
+  の`/v1/media-search`(`aruaru-llm`経由でプロキシ)でarchive.orgの音源を検索・
+  ストリーミング再生できます。**パブリックドメイン・CC0・CC-BY・CC-BY-SAのみに
+  限定済み**(CC-BY-NC等の非商用限定ライセンスは`aruaru-search`側で最初から除外)
+  ——**商用利用も可能**です。
+  **ライセンスに関する重要な注意(Important license notice)**: パブリックドメイン
+  以外(**CC-BY・CC-BY-SA**)の音源を商用利用する場合、そのライセンスにより
+  **作成者のクレジット表示とライセンスへのリンクを表示する法的な義務があります**
+  (CC-BY-SAはさらに同一ライセンスでの再配布も必要)。この機能は初回有効化時、
+  および30日ごとに、英語・日本語併記の通知を表示し、クリックすると
+  [`aruaru-search`の`ATTRIBUTION_NOTICE.md`](https://github.com/aon-co-jp/aruaru-search/blob/main/ATTRIBUTION_NOTICE.md)
+  (日英正本+世界約130ヶ国語のAI翻訳)を開けます。再生中の音源のクレジット・
+  ライセンスリンクは、BGMパネル内に常時表示されます。
+  *(EN) Study BGM streams tracks from archive.org via `aruaru-search`'s
+  `/v1/media-search` (proxied through `aruaru-llm`), limited to Public Domain, CC0,
+  CC-BY, and CC-BY-SA licenses — **commercial use is allowed**. Important: for
+  non-Public-Domain tracks (CC-BY / CC-BY-SA), commercial use legally requires
+  attribution (credit the creator, link to the license). A bilingual notice is shown
+  on first enable and every 30 days, linking to the full notice in EN/JA + ~130
+  AI-translated languages.*
 - **メイドカフェ風のしゃべり演出**(`speakText`設定、既定ON): 起動時に出迎えの挨拶
   (「おかえりなさいませ！ご主人様！良い子のみんな元気〜！…」)、AI先生の回答の読み上げ、
   コーヒー・オムライス等の注文を検知すると「おいしくなーれ、萌え萌えキューん。」、
@@ -77,15 +82,19 @@
   常に同じ声・同じ抑揚になるとは限りません。
 - 発話・注文検知・悩み相談検知はいずれも**固定キーワードによるルールベース判定**であり、
   AI推論を経由しません(誤検知・見逃しがあり得ます)。
-- **学習中BGM機能は、この拡張機能自体には音楽生成AIを一切実装していません**——お使いの
-  ローカル`open-music-llm`(MusicGen、`python/generate.py`)をサブプロセスとして呼び出す
-  だけの薄いラッパーです。`open-music-llm`が未セットアップの場合、この拡張機能は設定を
-  促すエラーを表示するだけです。**ライセンス警告(CC-BY-NC 4.0の確認)は自己申告制であり、
-  実際の商用/非商用利用をコードから検出する技術的な手段はありません。**
-  *(EN) The Study BGM feature implements no music-generation AI of its own — it is a thin
-  wrapper that shells out to your local `open-music-llm` (MusicGen). The CC-BY-NC 4.0 license
-  warning is a self-attestation mechanism only; there is no technical way to detect actual
-  commercial use from code.*
+- **学習中BGM機能は、この拡張機能自体には検索・音楽生成AIを一切実装していません**——
+  既存アーキテクチャ方針どおり`aruaru-llm`(`aruaruLlmBaseUrl`)へHTTPで問い合わせる
+  だけの薄いラッパーで、実際のarchive.org検索・ライセンス絞り込みは`aruaru-llm`が
+  プロキシする`aruaru-search`の`/v1/media-search`が行います。`aruaru-llm`が未起動の場合、
+  この拡張機能は接続エラーを正直に表示するだけです。**表示義務についての通知は
+  自己申告・自己確認の仕組みであり(CC-BY/CC-BY-SAのライセンス表示義務そのものを技術的に
+  強制する手段はありません)、あくまで利用者に思い出させるためのものです。**
+  *(EN) The Study BGM feature implements no search or music-generation AI of its own — it
+  is a thin HTTP client to your local `aruaru-llm` (`aruaruLlmBaseUrl`), which proxies
+  `aruaru-search`'s `/v1/media-search` (the actual archive.org search and license
+  filtering happens there). The attribution-obligation notice is a self-attestation/
+  reminder mechanism only; there is no technical way to enforce the CC-BY/CC-BY-SA
+  attribution requirement from code.*
 
 ## セットアップ
 
