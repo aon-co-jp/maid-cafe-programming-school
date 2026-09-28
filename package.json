@@ -69,6 +69,14 @@
       {
         "command": "maidCafeSchool.todaysSampleTask",
         "title": "Maid Cafe School: Today's Sample Task (from aruaru-jobs) / 今日のサンプル案件"
+      },
+      {
+        "command": "maidCafeSchool.openWorldLearning",
+        "title": "Maid Cafe School: Learn Japanese/English/World Languages / 日本語・英語・世界の言語を学ぶ"
+      },
+      {
+        "command": "maidCafeSchool.setupRelatedRepos",
+        "title": "Maid Cafe School: Set Up Related Repos / 関連リポジトリのセットアップ"
       }
     ],
     "configuration": {

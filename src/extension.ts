@@ -64,8 +64,18 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("maidCafeSchool.openProgrammingBasics", () => openProgrammingBasics(context)),
     vscode.commands.registerCommand("maidCafeSchool.openJavaScriptClassroom", () => openJavaScriptClassroom(context)),
     vscode.commands.registerCommand("maidCafeSchool.todaysSampleTask", () => todaysSampleTask(context)),
+    vscode.commands.registerCommand("maidCafeSchool.openWorldLearning", () => openWorldLearning(context)),
+    vscode.commands.registerCommand("maidCafeSchool.setupRelatedRepos", () => setupRelatedRepos(context)),
     registerJobImportUriHandler(context)
   );
+
+  // ユーザー指示(2026-09-28)「プラグインと同時にローカルPCにまだ
+  // インストールしていなければ、open-easy-web+open-directx+open-cpu+
+  // open-cuda+aruaru-llmなどと、その他関連リポジトリを一緒にダウン
+  // ロードして利用して頂ける用にして」——起動のたびに毎回尋ねると
+  // 煩わしいため、globalStateのフラグで「一度だけ」案内する
+  // (何度でも手動では`setupRelatedRepos`コマンドから呼べる)。
+  maybeOfferRelatedReposSetupOnce(context);
 
   // ユーザー指示(2026-09-28): 「最初は『おかえりなさいませ！ご主人様！』
   // としゃべって。途中も全部しゃべるなら、テキスト内容をしゃべる、の
@@ -193,6 +203,8 @@ async function openMenu(context: vscode.ExtensionContext) {
       { label: "$(mortar-board) プログラミング基礎教室(幼稚園児にも分かるように) / Programming Basics", value: "basics" },
       { label: "$(symbol-method) JavaScript教室(初心者向け) / JavaScript Classroom", value: "javascript" },
       { label: "$(briefcase) 今日のサンプル案件 / Today's Sample Task", value: "sample" },
+      { label: "$(globe) 日本語・英語・世界の言語を学ぶ / Learn Japanese, English, or a World Language", value: "world" },
+      { label: "$(cloud-download) 関連リポジトリのセットアップ / Set Up Related Repos", value: "setup-repos" },
     ],
     { placeHolder: "Maid Cafe Programming School" }
   );
@@ -205,6 +217,8 @@ async function openMenu(context: vscode.ExtensionContext) {
   else if (pick.value === "basics") await openProgrammingBasics(context);
   else if (pick.value === "javascript") await openJavaScriptClassroom(context);
   else if (pick.value === "sample") await todaysSampleTask(context);
+  else if (pick.value === "world") await openWorldLearning(context);
+  else if (pick.value === "setup-repos") await setupRelatedRepos(context);
 }
 
 function getAiProvider(context: vscode.ExtensionContext): AiProvider {
@@ -940,6 +954,261 @@ function extractJobItems(results: unknown): any[] {
   if (Array.isArray((results as any)?.results)) return (results as any).results;
   if (Array.isArray(results)) return results as any[];
   return [];
+}
+
+// ユーザー指示(2026-09-28)「open-englishの日本語と英語を基本に世界中の
+// 言語を学べる機能＋Visual Studio Codeのプラグインと連携して…ユーザーは
+// 日本語か英語か世界中の言語だけ学習もしくは、プログラミングだけ学習。
+// もしくは、いっしょに学習したり。題材も…」——open-english web版が
+// 持つ「学びたい言語」選択・題材選択の考え方をこのVS Code拡張機能側にも
+// 持ち込み、モード(言語学習のみ/プログラミングのみ/両方いっしょ)+
+// 学びたい言語+題材(メイドカフェ研修ブログ風・世界の都市/観光名所・
+// お土産や体験・ニュースやYouTube検索・realdata.pro・aruaru-jobs案件)を
+// 選んでAI先生への依頼文を組み立てる。**正直な開示**: このプラグイン
+// 自体は検索・地理データベースを持たない——「ニュース/YouTube検索」
+// 「realdata.pro情報」等の題材は、aruaru-llm側の検索補強
+// (`use_google_search`/GitHub調査)に委ねるプロンプトを組み立てるのみ。
+type LearningMode = "language" | "programming" | "both";
+const LEARNING_MODE_LABELS: Record<LearningMode, string> = {
+  language: "$(comment-discussion) 言語学習だけ / Language learning only",
+  programming: "$(code) プログラミングだけ / Programming only",
+  both: "$(rocket) いっしょに学習する / Learn both together",
+};
+
+// 全世界130言語のうち、まず主要な言語に絞った実用的な一覧(open-english
+// web版の"world-language-exams.json"と同じ考え方、ただしこちらは新規に
+// このリポジトリ用に定義したもの)。
+const WORLD_LANGUAGES: { code: string; label: string }[] = [
+  { code: "ja", label: "日本語 / Japanese" },
+  { code: "en", label: "English / 英語" },
+  { code: "es", label: "Español / スペイン語" },
+  { code: "fr", label: "Français / フランス語" },
+  { code: "de", label: "Deutsch / ドイツ語" },
+  { code: "it", label: "Italiano / イタリア語" },
+  { code: "pt", label: "Português / ポルトガル語" },
+  { code: "ru", label: "Русский / ロシア語" },
+  { code: "zh", label: "中文 / 中国語" },
+  { code: "ko", label: "한국어 / 韓国語" },
+  { code: "ar", label: "العربية / アラビア語" },
+  { code: "hi", label: "हिन्दी / ヒンディー語" },
+  { code: "vi", label: "Tiếng Việt / ベトナム語" },
+  { code: "th", label: "ภาษาไทย / タイ語" },
+  { code: "id", label: "Bahasa Indonesia / インドネシア語" },
+  { code: "tr", label: "Türkçe / トルコ語" },
+  { code: "nl", label: "Nederlands / オランダ語" },
+  { code: "pl", label: "Polski / ポーランド語" },
+  { code: "uk", label: "Українська / ウクライナ語" },
+  { code: "sw", label: "Kiswahili / スワヒリ語" },
+];
+
+type LearningTopic =
+  | "maid_cafe_blog"
+  | "world_cities"
+  | "tourist_spots"
+  | "souvenirs_food"
+  | "experiences_classes"
+  | "news_and_youtube"
+  | "realdata_pro"
+  | "aruaru_jobs"
+  | "free_chat";
+const LEARNING_TOPIC_LABELS: Record<LearningTopic, string> = {
+  maid_cafe_blog: "$(comment) メイドカフェ英会話研修ブログ風 / Maid-cafe English training blog style",
+  world_cities: "$(globe) 世界の州・主要都市・都道府県・市区町村 / World states, major cities, prefectures, towns",
+  tourist_spots: "$(location) 観光名所 / Tourist spots",
+  souvenirs_food: "$(gift) 美味しいもの・お土産 / Delicious food and souvenirs",
+  experiences_classes: "$(mortar-board) 様々な体験や教室 / Various experiences and classes",
+  news_and_youtube: "$(rss) インターネットニュース・ブログ・YouTube検索結果 / News, blogs, YouTube search results",
+  realdata_pro: "$(database) realdata.proの情報 / realdata.pro information",
+  aruaru_jobs: "$(briefcase) aruaru-jobsのフリーランス案件 / aruaru-jobs freelance listings",
+  free_chat: "$(comment-discussion) 自由に雑談する / Free chat, no fixed topic",
+};
+function topicMaterialHint(topic: LearningTopic): string {
+  switch (topic) {
+    case "maid_cafe_blog":
+      return (
+        "秋葉原メイドカフェの実際の接客・英会話研修ブログのスタイル(完璧な文法より" +
+        "キーワード+笑顔で会話が成立する、という考え方)を参考にした題材にしてください。 / " +
+        "Use the style of a real Akihabara maid-cafe customer-service/English-training blog " +
+        "(the idea that keywords plus a smile matter more than perfect grammar) as material."
+      );
+    case "world_cities":
+      return (
+        "世界の州・主要都市・(日本の)都道府県・市区町村を題材にしてください。 / " +
+        "Use world states/provinces, major cities, and Japan's prefectures/municipalities as material."
+      );
+    case "tourist_spots":
+      return "観光名所を題材にしてください。 / Use tourist spots as material.";
+    case "souvenirs_food":
+      return "美味しいものやお土産を題材にしてください。 / Use delicious local food and souvenirs as material.";
+    case "experiences_classes":
+      return "様々な体験や教室(現地での体験・習い事等)を題材にしてください。 / Use various local experiences and classes as material.";
+    case "news_and_youtube":
+      return (
+        "最新のインターネットニュース・ブログ・YouTube検索結果を調べた上で、それを題材にしてください" +
+        "(検索補強を使ってください)。 / Look up the latest internet news, blogs, and YouTube search " +
+        "results and use them as material (please use web-search grounding)."
+      );
+    case "realdata_pro":
+      return (
+        "realdata.pro(不動産・実データ検索サイト)の情報を調べた上で、それを題材にしてください。 / " +
+        "Look up information from realdata.pro (a real-estate/real-data search site) and use it as material."
+      );
+    case "aruaru_jobs":
+      return (
+        "aruaru-jobs(フリーランス案件検索サイト)の実際の案件情報を調べた上で、それを題材にしてください。 / " +
+        "Look up real freelance job listings from aruaru-jobs and use them as material."
+      );
+    case "free_chat":
+    default:
+      return "特に決まった題材はありません、自由に雑談してください。 / There is no fixed topic — just chat freely.";
+  }
+}
+function learningModeInstruction(mode: LearningMode, langLabel: string): string {
+  if (mode === "language") {
+    return (
+      `${langLabel}での会話練習をしたいです。上記の題材を使って、雑談しながら会話練習をしてください。 / ` +
+      `I'd like to practice conversation in ${langLabel}. Please chat with me about the topic above.`
+    );
+  }
+  if (mode === "programming") {
+    return (
+      "上記の題材を参考に、スマホアプリまたはWEBサイト開発の練習をしたいです。プログラミングの指導をしてください。 / " +
+      "Using the topic above as inspiration, I'd like to practice developing a mobile app or website — please teach me the programming."
+    );
+  }
+  return (
+    `${langLabel}での会話練習と、スマホアプリ/WEBサイト開発の練習を、上記の題材を使いながら` +
+    "いっしょに進めたいです。日本語と英語(または選んだ言語)で会話しつつ、開発も教えてください。 / " +
+    `I'd like to practice both conversation in ${langLabel} and mobile-app/website development together, ` +
+    "using the topic above — please converse with me while also teaching the development side."
+  );
+}
+
+async function openWorldLearning(context: vscode.ExtensionContext) {
+  const modePick = await vscode.window.showQuickPick(
+    (Object.keys(LEARNING_MODE_LABELS) as LearningMode[]).map((value) => ({ label: LEARNING_MODE_LABELS[value], value })),
+    { title: "どう学びますか？ / How would you like to learn?", ignoreFocusOut: true }
+  );
+  if (!modePick) return;
+  const mode = modePick.value;
+
+  let langLabel = "日本語・英語 / Japanese & English";
+  if (mode !== "programming") {
+    const langPick = await vscode.window.showQuickPick(
+      WORLD_LANGUAGES.map((l) => ({ label: l.label, value: l.label })),
+      { title: "学びたい言語を選んでください / Choose the language you'd like to learn", ignoreFocusOut: true }
+    );
+    if (!langPick) return;
+    langLabel = langPick.value;
+  }
+
+  const topicPick = await vscode.window.showQuickPick(
+    (Object.keys(LEARNING_TOPIC_LABELS) as LearningTopic[]).map((value) => ({ label: LEARNING_TOPIC_LABELS[value], value })),
+    { title: "題材を選んでください / Choose a topic to use as material", ignoreFocusOut: true }
+  );
+  if (!topicPick) return;
+  const topic = topicPick.value;
+
+  if (topic === "aruaru_jobs") {
+    // 既存の「今日のサンプル案件」フローをそのまま再利用する
+    // (aruaru-jobsへの実検索は既にそちらに実装済みのため重複させない)。
+    await todaysSampleTask(context);
+    return;
+  }
+
+  const prompt = `${topicMaterialHint(topic)}\n\n${learningModeInstruction(mode, langLabel)}`;
+  const label = `World learning: ${LEARNING_MODE_LABELS[mode]} / ${LEARNING_TOPIC_LABELS[topic]}`;
+  await sendPromptToTeacher(context, label, prompt, /* skipStudyToggle */ true);
+  await offerUnlimitedLessonQuestions(context, label);
+}
+
+// ユーザー指示(2026-09-28)「プラグインと同時にローカルPCにまだ
+// インストールしていなければ、open-easy-web+open-directx+open-cpu+
+// open-cuda+aruaru-llmなどと、その他関連リポジトリを一緒にダウン
+// ロードして利用して頂ける用にして」——正直な開示: このプラグイン
+// 自体はビルド・実行環境を持たないため、実際に行えるのは「まだ
+// 存在しないリポジトリを、統合ターミナルで`git clone`する」ところ
+// までであり、各リポジトリのビルド・起動は利用者自身がそれぞれの
+// README/インストーラーに従って行う必要がある(黙って裏で自動ビルド
+// する、というような誇張はしない)。
+const RELATED_REPOS: { id: string; description: string }[] = [
+  { id: "open-easy-web", description: "ドメイン簡単登録+HTTPS自動監視/発行/更新" },
+  { id: "open-directx", description: "DirectX互換クロスプラットフォーム抽象化層" },
+  { id: "open-cpu", description: "CPU命令セット検出共通ライブラリ" },
+  { id: "open-cuda", description: "GPU compute抽象化(aruaru-llmの推論基盤)" },
+  { id: "aruaru-llm", description: "AI推論・検索エンジン本体(このプラグインが接続する先)" },
+];
+const RELATED_REPOS_SETUP_DONE_KEY = "maidCafeSchool.relatedReposSetupOffered";
+
+async function maybeOfferRelatedReposSetupOnce(context: vscode.ExtensionContext) {
+  if (context.globalState.get<boolean>(RELATED_REPOS_SETUP_DONE_KEY, false)) return;
+  await context.globalState.update(RELATED_REPOS_SETUP_DONE_KEY, true);
+  const choice = await vscode.window.showInformationMessage(
+    "AI先生機能をフルに使うには、open-easy-web・open-directx・open-cpu・open-cuda・aruaru-llm等の" +
+      "関連リポジトリが必要です。まだお手元に無ければ、いま一緒にダウンロードしますか？ / " +
+      "To use the full AI-teacher features, you'll need related repos like open-easy-web, open-directx, " +
+      "open-cpu, open-cuda, and aruaru-llm. Would you like to download them now if you don't have them yet?",
+    "🧰 セットアップする / Set up now",
+    "あとで / Later"
+  );
+  if (choice === "🧰 セットアップする / Set up now") {
+    await setupRelatedRepos(context);
+  }
+}
+
+async function setupRelatedRepos(context: vscode.ExtensionContext) {
+  const folders = await vscode.window.showOpenDialog({
+    canSelectFiles: false,
+    canSelectFolders: true,
+    canSelectMany: false,
+    openLabel: "このフォルダへclone / Clone into this folder",
+    title: "関連リポジトリをどこへ配置しますか？ / Where should the related repos be placed?",
+  });
+  if (!folders || folders.length === 0) return;
+  const baseDir = folders[0].fsPath;
+
+  const picks = await vscode.window.showQuickPick(
+    RELATED_REPOS.map((r) => ({
+      label: r.id,
+      description: r.description,
+      picked: !repoAlreadyPresent(baseDir, r.id),
+    })),
+    {
+      title: "セットアップするリポジトリを選んでください(既にあるものは既定でチェックを外しています) / " +
+        "Choose which repos to set up (already-present ones are unchecked by default)",
+      canPickMany: true,
+      ignoreFocusOut: true,
+    }
+  );
+  if (!picks || picks.length === 0) return;
+
+  const terminal = vscode.window.createTerminal("Maid Cafe School: Related Repos Setup");
+  terminal.show(true);
+  for (const pick of picks) {
+    if (repoAlreadyPresent(baseDir, pick.label)) {
+      terminal.sendText(`echo "${pick.label} は既に存在するのでスキップします / already present, skipping"`);
+      continue;
+    }
+    terminal.sendText(`git clone https://github.com/aon-co-jp/${pick.label}.git`);
+  }
+  vscode.window.showInformationMessage(
+    "統合ターミナルでcloneを開始しました。各リポジトリのビルド・起動はそれぞれのREADMEに従って" +
+      "ご自身で行ってください(このプラグインが裏で自動ビルドすることはありません)。 / " +
+      "Cloning has started in the integrated terminal. Please build/run each repo yourself following " +
+      "its own README (this extension never silently builds anything in the background)."
+  );
+}
+
+function repoAlreadyPresent(baseDir: string, repoId: string): boolean {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const fs = require("fs") as typeof import("fs");
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const path = require("path") as typeof import("path");
+    return fs.existsSync(path.join(baseDir, repoId));
+  } catch {
+    return false;
+  }
 }
 
 /** Minimal JSON POST helper using Node's built-in http/https (no extra runtime dependency). */
