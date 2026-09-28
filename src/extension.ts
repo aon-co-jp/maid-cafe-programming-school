@@ -1010,6 +1010,7 @@ type LearningTopic =
   | "news_and_youtube"
   | "realdata_pro"
   | "aruaru_jobs"
+  | "data_scientist_coursera"
   | "free_chat";
 const LEARNING_TOPIC_LABELS: Record<LearningTopic, string> = {
   maid_cafe_blog: "$(comment) メイドカフェ英会話研修ブログ風 / Maid-cafe English training blog style",
@@ -1020,8 +1021,41 @@ const LEARNING_TOPIC_LABELS: Record<LearningTopic, string> = {
   news_and_youtube: "$(rss) インターネットニュース・ブログ・YouTube検索結果 / News, blogs, YouTube search results",
   realdata_pro: "$(database) realdata.proの情報 / realdata.pro information",
   aruaru_jobs: "$(briefcase) aruaru-jobsのフリーランス案件 / aruaru-jobs freelance listings",
+  data_scientist_coursera: "$(graph) アメリカのデータサイエンティストを目指す(Coursera参考) / Becoming a US Data Scientist (Coursera-inspired)",
   free_chat: "$(comment-discussion) 自由に雑談する / Free chat, no fixed topic",
 };
+
+// ユーザー指示(2026-09-28)「コーセラと言うオンライン学習サイトで
+// アメリカのデータサイエンティスト学習出来る内容の機能をLIST化したので
+// 参考にして」——ユーザーが調べて提示したCoursera関連プログラム・
+// コーセラ社内データサイエンティストの実業務3領域を題材のヒントとして
+// 組み込む。**正直な開示**: これはCoursera公式サイトの転載ではなく、
+// ユーザーが提示した要約(出典: coursera.org、xn--tckq2lyc.com、note.com、
+// qiita.com、tora3data.com等)を参考にした学習材料であり、プログラムの
+// 最新の提供状況・料金・入学要件は変更され得るため、実際に検討する際は
+// 必ずCoursera公式サイトで確認するよう案内する。
+const DATA_SCIENTIST_COURSERA_HINT =
+  "以下のCoursera(アメリカのオンライン学習サイト)を参考にした、データ" +
+  "サイエンティストを目指す学習材料を題材にしてください。 / Use the " +
+  "following Coursera-inspired data-scientist learning material as the topic.\n\n" +
+  "【主なプログラム例 / Example programs】\n" +
+  "- Google データアナリティクス プロフェッショナル認定(初心者向け、SQL/R/Tableau等) / " +
+  "Google Data Analytics Professional Certificate (beginner-friendly; SQL, R, Tableau, etc.)\n" +
+  "- IBM データサイエンス プロフェッショナル認定(Python・機械学習・SQL) / " +
+  "IBM Data Science Professional Certificate (Python, machine learning, SQL)\n" +
+  "- アメリカの大学のオンライン学位(例: コロラド大学ボルダー校のMaster of Science in Data Science) / " +
+  "US university online degrees (e.g. University of Colorado Boulder's Master of Science in Data Science)\n\n" +
+  "【データサイエンティストの実業務3領域の例 / Example of 3 real-world work areas】\n" +
+  "- インサイト業務: 因果推論や統計手法でデータから有意義なパターンを発見する / " +
+  "Insight work: using causal inference and statistics to find meaningful patterns in data\n" +
+  "- プロダクト実験: 機会のサイジング・実験デザイン・結果分析までのプロダクト検証 / " +
+  "Product experimentation: sizing opportunities, designing experiments, and analyzing results end-to-end\n" +
+  "- アナリティクス有効化: 新しいデータパイプラインの構築・ダッシュボード作成 / " +
+  "Analytics enablement: building new data pipelines and dashboards\n\n" +
+  "※これはCoursera公式サイトの転載ではなく参考情報です。最新の提供状況・料金は" +
+  "ご自身でCoursera公式サイト(coursera.org)にてご確認ください。 / " +
+  "Note: this is reference material, not an official Coursera reprint — please confirm current " +
+  "availability and pricing on Coursera's official site (coursera.org).";
 function topicMaterialHint(topic: LearningTopic): string {
   switch (topic) {
     case "maid_cafe_blog":
@@ -1058,12 +1092,20 @@ function topicMaterialHint(topic: LearningTopic): string {
         "aruaru-jobs(フリーランス案件検索サイト)の実際の案件情報を調べた上で、それを題材にしてください。 / " +
         "Look up real freelance job listings from aruaru-jobs and use them as material."
       );
+    case "data_scientist_coursera":
+      return DATA_SCIENTIST_COURSERA_HINT;
     case "free_chat":
     default:
       return "特に決まった題材はありません、自由に雑談してください。 / There is no fixed topic — just chat freely.";
   }
 }
-function learningModeInstruction(mode: LearningMode, langLabel: string): string {
+function learningModeInstruction(mode: LearningMode, langLabel: string, topic?: LearningTopic): string {
+  // データサイエンティストの題材の場合は「スマホアプリ/WEBサイト開発」
+  // ではなく、Python/SQL/データ分析の練習という文脈に合わせた文言にする。
+  const devKind =
+    topic === "data_scientist_coursera"
+      ? { ja: "Python・SQL・データ分析のスキル", en: "Python/SQL/data-analysis skills" }
+      : { ja: "スマホアプリまたはWEBサイト開発", en: "developing a mobile app or website" };
   if (mode === "language") {
     return (
       `${langLabel}での会話練習をしたいです。上記の題材を使って、雑談しながら会話練習をしてください。 / ` +
@@ -1072,14 +1114,14 @@ function learningModeInstruction(mode: LearningMode, langLabel: string): string 
   }
   if (mode === "programming") {
     return (
-      "上記の題材を参考に、スマホアプリまたはWEBサイト開発の練習をしたいです。プログラミングの指導をしてください。 / " +
-      "Using the topic above as inspiration, I'd like to practice developing a mobile app or website — please teach me the programming."
+      `上記の題材を参考に、${devKind.ja}の練習をしたいです。プログラミングの指導をしてください。 / ` +
+      `Using the topic above as inspiration, I'd like to practice ${devKind.en} — please teach me.`
     );
   }
   return (
-    `${langLabel}での会話練習と、スマホアプリ/WEBサイト開発の練習を、上記の題材を使いながら` +
+    `${langLabel}での会話練習と、${devKind.ja}の練習を、上記の題材を使いながら` +
     "いっしょに進めたいです。日本語と英語(または選んだ言語)で会話しつつ、開発も教えてください。 / " +
-    `I'd like to practice both conversation in ${langLabel} and mobile-app/website development together, ` +
+    `I'd like to practice both conversation in ${langLabel} and ${devKind.en} together, ` +
     "using the topic above — please converse with me while also teaching the development side."
   );
 }
@@ -1116,7 +1158,7 @@ async function openWorldLearning(context: vscode.ExtensionContext) {
     return;
   }
 
-  const prompt = `${topicMaterialHint(topic)}\n\n${learningModeInstruction(mode, langLabel)}`;
+  const prompt = `${topicMaterialHint(topic)}\n\n${learningModeInstruction(mode, langLabel, topic)}`;
   const label = `World learning: ${LEARNING_MODE_LABELS[mode]} / ${LEARNING_TOPIC_LABELS[topic]}`;
   await sendPromptToTeacher(context, label, prompt, /* skipStudyToggle */ true);
   await offerUnlimitedLessonQuestions(context, label);
