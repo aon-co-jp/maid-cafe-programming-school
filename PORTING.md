@@ -63,3 +63,24 @@ returning a fixed phrase without going through AI inference — mirrors
 `consumptionTaxSuffix` and friends on the `open-english` side. It's a
 reusable alternative wherever letting the AI "make something up" would
 be worse than a scripted response.
+
+## 5. `easy-web.tokyo`上の静的ランディングページ配信パターン(`make-disk-web.service`と同型)
+
+`webpage/index.html`(このリポジトリの紹介ページ、`https://easy-web.tokyo/
+maid-cafe-programming-school`で公開)は、`make-disk`リポジトリの
+`make-disk-web.service`と全く同じ最小構成で配信している:
+`python3 -m http.server <port> --bind 127.0.0.1`をsystemdサービス化し、
+VPS側`/root/open-web-server/domains.toml`に`host = "easy-web.tokyo"`・
+`path_prefix = "/<name>"`・`strip_prefix = true`のエントリを1件追加する
+だけ(専用のバックエンド実装は不要)。この構成は他の「GitHubリポジトリの
+簡単な紹介ページをeasy-web.tokyo配下に置きたいだけ」の場合にそのまま
+再利用できる。
+
+`webpage/index.html` (this repository's introduction page, published at
+`https://easy-web.tokyo/maid-cafe-programming-school`) is served with the
+exact same minimal setup as `make-disk`'s `make-disk-web.service`:
+`python3 -m http.server <port> --bind 127.0.0.1` as a systemd service,
+plus one `domains.toml` entry on the VPS (`host = "easy-web.tokyo"`,
+`path_prefix = "/<name>"`, `strip_prefix = true`) — no dedicated backend
+needed. This pattern is directly reusable any time you just want a simple
+GitHub-repo introduction page hosted under `easy-web.tokyo`.

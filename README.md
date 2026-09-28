@@ -104,10 +104,18 @@
 1. `npm install`
 2. `npm run compile`
 3. VS Codeで`F5`(拡張機能開発ホストの起動)、またはvsceでパッケージ化してインストール
+   (`npm run package`で`.vsix`を生成、または将来的にVS Code Marketplaceで
+   「Maid Cafe Programming School」を検索してインストール——公開準備は済み
+   〈`icon`/`repository`/`LICENSE`等〉ですが、Marketplace公開自体はご自身の
+   Azure DevOps発行者トークンでの`npm run publish`が必要です)
 4. 設定(`maidCafeSchool.aruaruLlmBaseUrl`)でご自身の`aruaru-llm`の接続先を確認(既定は
    `http://127.0.0.1:4600`)
 5. 「テキスト内容をしゃべる」(`maidCafeSchool.speakText`)は既定ONです。オフにしたい
    場合はコマンドパレットから「Maid Cafe School: Toggle "Speak Text"」を実行してください。
+
+紹介ページ(日英併記、使い方・関連リンク)は
+[easy-web.tokyo/maid-cafe-programming-school](https://easy-web.tokyo/maid-cafe-programming-school)
+でも公開しています。
 
 ## Honest disclosure (English)
 
@@ -124,3 +132,25 @@ Web Speech API (`speechSynthesis`) via a hidden webview — the extension has no
 its own, and the actual voice depends on what your OS/browser provides. All of this is gated by
 the `maidCafeSchool.speakText` setting (default ON, remembered across sessions), and the
 detection is simple keyword matching, not AI inference.
+
+## Related projects / 関連プロジェクト
+
+- **[open-english](https://github.com/aon-co-jp/open-english)** — The parent web app this
+  extension is a companion to. A free, unlimited English/Japanese/world-language learning app
+  that uses `aruaru-llm` + `aruaru-search` (no API key, no per-request cost) as its default AI
+  teacher, with optional paid cloud providers (ChatGPT/Gemini/DeepSeek/Grok/Claude) if you bring
+  your own key. This VS Code extension exists because the web chat alone couldn't pass editor
+  context (selected code, file paths) to the AI teacher.
+  *(JA)* この拡張機能の母体となっているWebアプリです。`aruaru-llm`+`aruaru-search`
+  (APIキー不要・無制限)を既定のAI先生とし、ご自身のAPIキーがあれば有料クラウド
+  プロバイダ(ChatGPT/Gemini/DeepSeek/Grok/Claude)にも切り替えられる、無料の
+  日本語・英語・世界の言語学習アプリです。本拡張機能は、Webチャットだけではエディタの
+  コンテキスト(選択中のコード・ファイルパス)を渡せないという限界を超えるために作られました。
+- **[github.com/aon-co-jp](https://github.com/aon-co-jp)** — The GitHub organization behind
+  this extension, `open-english`, `aruaru-llm`/`aruaru-search` (the free AI teacher/search
+  engine behind it), and the wider `open-*`/`aruaru-*` ecosystem of open-source, self-hostable
+  tools this project is built on.
+  *(JA)* この拡張機能・`open-english`・その裏側にある無料のAI先生/検索エンジン
+  `aruaru-llm`/`aruaru-search`をはじめ、このプロジェクトの土台となっている
+  `open-*`/`aruaru-*`系オープンソース(自前ホスト可能)エコシステム全体を運営している
+  GitHub organizationです。

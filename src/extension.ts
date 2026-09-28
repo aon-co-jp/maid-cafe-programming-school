@@ -266,8 +266,15 @@ function ensureBgmPanel(context: vscode.ExtensionContext): vscode.WebviewPanel {
       <button id="forward" title="Fast-forward 10s / 10秒早送り">⏩</button>
       <button id="skip" title="Skip to next track / 次の曲へスキップ">⏭</button>
       <label style="margin-left:10px">🔊 <input id="volume" type="range" min="0" max="100" value="80" style="vertical-align:middle" /></label>
+      <label style="margin-left:10px" title="Rumble/hiss-cut filter + loudness leveling via the Web Audio API (basic DSP, not AI denoising). / Web Audio APIによるノイズ帯域カット+音量平準化(基本的なDSPで、AIによるノイズ除去ではありません)。">
+        <input id="enhance" type="checkbox" checked style="vertical-align:middle" /> ✨ Sound enhancement / 高音質化
+      </label>
     </div>
     <p id="credit" style="font-size:0.85em;padding:0;margin-top:6px"></p>
+    <p style="font-size:0.75em;opacity:0.7;margin-top:2px">
+      ✨ = high-pass rumble/hiss cut + gentle compressor (Web Audio API), not AI noise removal. /
+      ✨ = 低域ランブル・ヒスノイズのカット + ゆるやかなコンプレッサー(Web Audio API使用、AIによるノイズ除去ではありません)。
+    </p>
     <script>
       const vscodeApi = acquireVsCodeApi();
       const audio = document.getElementById("a");
@@ -275,7 +282,57 @@ function ensureBgmPanel(context: vscode.ExtensionContext): vscode.WebviewPanel {
       const performer = document.getElementById("performer");
       const credit = document.getElementById("credit");
       const toggleBtn = document.getElementById("toggle");
+      const enhanceBox = document.getElementById("enhance");
       audio.volume = 0.8;
+      audio.crossOrigin = "anonymous";
+
+      // 正直な開示: これは"高音質化"と言っても、真のAIノイズ除去や超解像ではなく、
+      // Web Audio APIの基本的なDSP(ハイパスフィルタでの低域ランブル/ヒスカット+
+      // DynamicsCompressorでの音量平準化)にとどまる。この拡張機能自体がAI推論を
+      // 行うわけではない(既存の「薄いクライアント」方針どおり)。
+      let audioCtx, sourceNode, highpass, compressor, gainNode;
+      function ensureEnhanceGraph() {
+        if (audioCtx) return;
+        try {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          sourceNode = audioCtx.createMediaElementSource(audio);
+          highpass = audioCtx.createBiquadFilter();
+          highpass.type = "highpass";
+          highpass.frequency.value = 60; // 低域の録音ランブル/ヒスをカット
+          compressor = audioCtx.createDynamicsCompressor();
+          compressor.threshold.value = -24;
+          compressor.ratio.value = 3;
+          gainNode = audioCtx.createGain();
+          gainNode.gain.value = 1.0;
+          applyRouting();
+        } catch (e) {
+          // 一部の環境(CSP等)でWeb Audio APIが使えなくても、通常再生は継続する。
+          enhanceBox.checked = false;
+          enhanceBox.disabled = true;
+        }
+      }
+      function applyRouting() {
+        if (!audioCtx) return;
+        sourceNode.disconnect();
+        highpass.disconnect();
+        compressor.disconnect();
+        if (enhanceBox.checked) {
+          sourceNode.connect(highpass);
+          highpass.connect(compressor);
+          compressor.connect(gainNode);
+        } else {
+          sourceNode.connect(gainNode);
+        }
+        gainNode.connect(audioCtx.destination);
+      }
+      enhanceBox.addEventListener("change", () => {
+        ensureEnhanceGraph();
+        applyRouting();
+      });
+      audio.addEventListener("play", () => {
+        ensureEnhanceGraph();
+        if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+      });
       toggleBtn.addEventListener("click", () => {
         if (audio.paused) audio.play().catch(() => {});
         else audio.pause();

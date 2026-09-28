@@ -59,6 +59,28 @@ VS Code拡張機能。`open-english`/`aruaru-llm`の既存API
      調整をしている(ユーザー指示、正直な開示: 実際の声質はOS/
      ブラウザの提供する音声次第で保証はできない)。
 
+## HANDOFF(2026-09-28 easy-web.tokyo紹介ページ+マーケットプレイス公開準備)
+
+- **紹介ページ**: `webpage/index.html`(日英併記、`make-disk`の
+  `make-disk-web.service`と同型の`python3 -m http.server`静的配信)を
+  `https://easy-web.tokyo/maid-cafe-programming-school`で公開(VPS側
+  `maid-cafe-programming-school-web.service`、ポート8109、
+  `/root/open-web-server/domains.toml`に`path_prefix =
+  "/maid-cafe-programming-school"`のエントリを追加、詳細は
+  [`PORTING.md`](PORTING.md)の5番目のパターン参照)。内容は機能紹介+
+  使い方+関連リンク(open-english・github.com/aon-co-jp)を日英併記。
+- **VS Code Marketplace公開準備**: `package.json`に`icon`(`media/
+  icon.png`、簡易生成)・`repository`/`bugs`/`homepage`/`galleryBanner`・
+  `keywords`追加、`LICENSE`ファイル(MIT)を新規作成、`@vscode/vsce`を
+  devDependenciesに追加(`npm run package`/`npm run publish`)。
+  **正直な開示**: 実際にVS Code Marketplaceへ`vsce publish`するには
+  Azure DevOpsのpublisher用PAT(このセッションには無い、ユーザー自身の
+  資格情報が必要)が要るため、その最終ステップ自体はまだ実行していない
+  ——メタデータ・アイコン・ライセンス等、公開に必要な準備のみ完了。
+- **次回**: (1) `vsce publish`をユーザー自身のPATで実行してもらう(または
+  それを依頼された場合に改めて対応)、(2) VS Code拡張機能開発ホストでの
+  実クリック確認(このセッション環境では未実施のまま)。
+
 ## HANDOFF(2026-09-28 学習中BGM機能を追加、後にopen-music-llm→archive.orgへ切替)
 
 - ユーザー提案(「学習中にBGMが選択出来るの良いね」)を受け、当初は

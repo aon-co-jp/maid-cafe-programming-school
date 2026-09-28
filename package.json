@@ -5,9 +5,18 @@
   "version": "0.1.0",
   "publisher": "aon-co-jp",
   "license": "MIT",
+  "icon": "media/icon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/aon-co-jp/maid-cafe-programming-school.git"
+  },
+  "bugs": {
+    "url": "https://github.com/aon-co-jp/maid-cafe-programming-school/issues"
+  },
+  "homepage": "https://github.com/aon-co-jp/maid-cafe-programming-school#readme",
+  "galleryBanner": {
+    "color": "#E9548C",
+    "theme": "dark"
   },
   "engines": {
     "vscode": "^1.85.0"
@@ -21,7 +30,11 @@
     "open-english",
     "aruaru-search",
     "claude",
-    "ai teacher"
+    "ai teacher",
+    "study bgm",
+    "archive.org",
+    "maid cafe",
+    "aon-co-jp"
   ],
   "activationEvents": [
     "onStartupFinished",
@@ -131,11 +144,14 @@
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "vscode:prepublish": "npm run compile"
+    "vscode:prepublish": "npm run compile",
+    "package": "vsce package",
+    "publish": "vsce publish"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.0.0",
     "typescript": "^5.4.0"
   }
 }

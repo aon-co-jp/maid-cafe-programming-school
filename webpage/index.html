@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Maid Cafe Programming School — VS Code Extension</title>
+<meta name="description" content="Ask your local aruaru-llm AI teacher, right from VS Code — the companion extension to open-english. / VS Codeからローカルのaruaru-llm AI先生に質問できる、open-englishの相棒拡張機能。" />
+<style>
+  :root {
+    --bg: #fff6fa;
+    --card: #ffffff;
+    --accent: #e9548c;
+    --accent-dark: #b5346a;
+    --text: #2c2230;
+    --muted: #6b5b66;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+    line-height: 1.7;
+  }
+  header {
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    color: #fff;
+    padding: 48px 20px 40px;
+    text-align: center;
+  }
+  header h1 { margin: 0 0 8px; font-size: 1.9em; }
+  header p { margin: 0; opacity: 0.95; }
+  main {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 24px 20px 60px;
+  }
+  .card {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 24px 26px;
+    margin: 20px 0;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  }
+  h2 { color: var(--accent-dark); margin-top: 0; }
+  .lang-block { margin-bottom: 14px; }
+  .lang-block:last-child { margin-bottom: 0; }
+  .badge {
+    display: inline-block;
+    font-size: 0.75em;
+    background: var(--accent);
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  code {
+    background: #f4e9ef;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.92em;
+  }
+  ol, ul { padding-left: 22px; }
+  a { color: var(--accent-dark); }
+  .cta {
+    text-align: center;
+    margin: 30px 0;
+  }
+  .cta a {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    text-decoration: none;
+    padding: 12px 28px;
+    border-radius: 999px;
+    font-weight: bold;
+    margin: 6px;
+  }
+  .cta a:hover { background: var(--accent-dark); }
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.85em;
+    padding: 20px;
+  }
+  .honest {
+    background: #fff9e8;
+    border-left: 4px solid #e0a800;
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 0.92em;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎓 Maid Cafe Programming School</h1>
+  <p>VS Code extension — companion to <a href="/open-english" style="color:#fff">open-english</a> / <a href="/open-english" style="color:#fff">open-english</a>の相棒拡張機能</p>
+</header>
+<main>
+
+  <div class="card">
+    <span class="badge">EN</span>
+    <h2>What is this?</h2>
+    <p>
+      <b>Maid Cafe Programming School</b> is a free, open-source VS Code extension that lets you
+      ask your local <a href="https://github.com/aon-co-jp/aruaru-llm">aruaru-llm</a> AI teacher —
+      grounded by <a href="https://github.com/aon-co-jp/aruaru-search">aruaru-search</a>
+      (unlimited, no API key needed) — questions right from your editor, with your selected code
+      and file path attached automatically. It exists because
+      <a href="/open-english">open-english</a>'s browser chat alone couldn't pass editor context
+      (selected code, file paths) to the AI teacher, limiting the "learn while you build" experience
+      to copy-pasting back and forth.
+    </p>
+    <p>Highlights:</p>
+    <ul>
+      <li>Ask the AI teacher with your selected code + file path attached, from the command palette or a status-bar icon</li>
+      <li>Optionally study relevant programming basics at the same time as you build</li>
+      <li>Switch AI teacher: aruaru-llm + free Google search (default), or bring your own key for ChatGPT/Gemini/DeepSeek/Grok/paid Claude</li>
+      <li>Import freelance job listings from <a href="https://github.com/aon-co-jp/aruaru-jobs">aruaru-jobs</a> as a learn-while-you-build prompt</li>
+      <li>A keyboard typing corner, beginner-friendly programming basics, and a JavaScript classroom</li>
+      <li>Learn Japanese, English, or a world language while you code</li>
+      <li><b>Study BGM</b>: stream commercially-safe background music from archive.org (Public Domain / CC0 / CC-BY / CC-BY-SA only), with play/pause, volume, skip, rewind/fast-forward, and track/performer display</li>
+      <li>Optional maid-cafe voice touches (a greeting, spoken replies) via the browser-standard Web Speech API</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <span class="badge">日本語</span>
+    <h2>これは何？</h2>
+    <p>
+      <b>Maid Cafe Programming School</b>は、
+      <a href="https://github.com/aon-co-jp/aruaru-llm">aruaru-llm</a>のAI先生
+      (<a href="https://github.com/aon-co-jp/aruaru-search">aruaru-search</a>による
+      無制限・APIキー不要の検索を裏付けとする)へ、エディタ上で選択中のコードや
+      ファイルパスを自動的に添えて質問できる、無料・オープンソースのVS Code拡張機能です。
+      <a href="/open-english">open-english</a>のブラウザ版チャットだけでは、エディタ上の
+      コンテキスト(選択範囲・ファイルパス)を渡せず、「一緒に開発しながら学ぶ」という
+      体験がチャットの往復コピペに限定されてしまう、という限界を超えるために作られました。
+    </p>
+    <p>主な機能:</p>
+    <ul>
+      <li>コマンドパレット、またはステータスバーのアイコンから、選択中のコード+ファイルパスを添えてAI先生に質問</li>
+      <li>開発を進めながら、関連する基礎知識も同時に学べる(ONにした場合)</li>
+      <li>AI先生を切替可能: aruaru-llm+無料Google検索(既定)、またはご自身のAPIキーでChatGPT/Gemini/DeepSeek/Grok/有料版Claude</li>
+      <li><a href="https://github.com/aon-co-jp/aruaru-jobs">aruaru-jobs</a>のフリーランス案件を、「一緒に学習しながら開発したい」という依頼文として取り込み</li>
+      <li>キーボードタイピングコーナー・幼稚園児にも分かるプログラミング基礎教室・JavaScript教室</li>
+      <li>日本語・英語・世界の言語を、開発しながら同時に学習</li>
+      <li><b>学習中BGM</b>: archive.orgの商用利用可能な音源(パブリックドメイン・CC0・CC-BY・CC-BY-SAのみ)をストリーミング再生。再生/一時停止・音量調整・スキップ・巻き戻し/早送り・曲名/歌手名表示に対応</li>
+      <li>メイドカフェ風のしゃべり演出(出迎え挨拶・回答の読み上げ、ブラウザ標準のWeb Speech API使用、任意)</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <span class="badge">日本語</span>
+    <h2>aruaru-search + aruaru-llmと一緒に、開発も言語学習も楽しめる</h2>
+    <p>
+      <b>aruaru-search + aruaru-llm</b>という完全無料のAI先生に加えて、無料でお試しできる
+      ChatGPT・DeepSeek・Grok、そして最も優秀ですが有料の<b>Claude Code Desktop</b>など、
+      お好みのAIをご選択いただけます。<a href="/open-english">open-english</a>と組み合わせて
+      使うと、AIと一緒に日本語・英語や世界中の言語を学習しながら、同時にフリーランス案件や
+      インターネットニュースなどを題材にした言語学習・プログラミング学習、さらにはスマホ
+      アプリやWebサイト開発の学習も一緒に楽しめます。
+    </p>
+    <p class="honest">
+      <b>AIの選び方のヒント:</b> Claudeは、<b>Sonnet(低い推論強度)</b>をご選択頂けますと、
+      賢い割には高速で消費が比較的控えめなのでオススメです。
+    </p>
+  </div>
+
+  <div class="card">
+    <span class="badge">EN</span>
+    <h2>Learn while you build, with aruaru-search + aruaru-llm</h2>
+    <p>
+      Alongside the completely free <b>aruaru-search + aruaru-llm</b> AI teacher, you can choose
+      free-trial ChatGPT, DeepSeek, or Grok, or — the most capable but paid option —
+      <b>Claude Code Desktop</b>. Combined with <a href="/open-english">open-english</a>, you can
+      learn Japanese, English, or a world language together with an AI, while also using
+      freelance job listings and internet news as material for language learning, programming
+      practice, and even learning to build mobile apps and websites — all while enjoying building
+      something real together.
+    </p>
+    <p class="honest">
+      <b>AI-provider tip:</b> if you use Claude, choosing <b>Sonnet at a lower reasoning
+      effort</b> is a good default — smart enough for most tasks, fast, and relatively
+      light on token usage.
+    </p>
+  </div>
+
+  <div class="card">
+    <span class="badge">EN</span>
+    <h2>How to use it</h2>
+    <ol>
+      <li>Make sure <a href="https://github.com/aon-co-jp/aruaru-llm">aruaru-llm</a> is running locally (default <code>http://127.0.0.1:4600</code>)</li>
+      <li>Install the extension from the VS Code Marketplace — search <b>"Maid Cafe Programming School"</b> inside VS Code's Extensions view, or install from the command line:
+        <br /><code>code --install-extension aon-co-jp.maid-cafe-programming-school</code></li>
+      <li>Select some code (optional), then run <b>"Maid Cafe School: Ask the AI Teacher"</b> from the command palette, or click the 🎓 status-bar icon</li>
+      <li>Open <b>"Maid Cafe School: Open Menu"</b> to toggle study mode, choose your AI teacher, turn Study BGM on, and more</li>
+    </ol>
+    <p class="honest">
+      <b>Honest disclosure:</b> this extension implements no AI inference, search, or music
+      generation of its own — it is a thin client that talks to your own locally running
+      <code>aruaru-llm</code> (and, for Study BGM, <code>aruaru-search</code>'s archive.org
+      search, proxied through <code>aruaru-llm</code>). If <code>aruaru-llm</code> isn't running,
+      you'll see an honest connection error rather than a fake answer.
+    </p>
+  </div>
+
+  <div class="card">
+    <span class="badge">日本語</span>
+    <h2>使い方</h2>
+    <ol>
+      <li><a href="https://github.com/aon-co-jp/aruaru-llm">aruaru-llm</a>をローカルで起動しておく(既定 <code>http://127.0.0.1:4600</code>)</li>
+      <li>VS CodeのExtensionsビュー内検索で<b>「Maid Cafe Programming School」</b>を検索してインストール、またはコマンドラインから:
+        <br /><code>code --install-extension aon-co-jp.maid-cafe-programming-school</code></li>
+      <li>お好みでコードを選択してから、コマンドパレットで<b>「Maid Cafe School: Ask the AI Teacher」</b>を実行、またはステータスバーの🎓アイコンをクリック</li>
+      <li><b>「Maid Cafe School: Open Menu」</b>から、学習モードの切替・AI先生の選択・学習中BGMのON/OFF等を行えます</li>
+    </ol>
+    <p class="honest">
+      <b>正直な開示:</b> この拡張機能自体には、AI推論・検索・音楽生成のいずれも実装されていません
+      ——お使いのローカル<code>aruaru-llm</code>(学習中BGMは、そこ経由でプロキシされる
+      <code>aruaru-search</code>のarchive.org検索)へ問い合わせるだけの薄いクライアントです。
+      <code>aruaru-llm</code>が起動していない場合は、それらしい回答をでっち上げるのではなく、
+      正直に接続エラーを表示します。
+    </p>
+  </div>
+
+  <div class="cta">
+    <a href="https://github.com/aon-co-jp/maid-cafe-programming-school">📦 GitHub Repository</a>
+    <a href="/open-english">🎓 open-english</a>
+    <a href="https://github.com/aon-co-jp">🏢 github.com/aon-co-jp</a>
+  </div>
+
+  <div class="card">
+    <span class="badge">EN</span> <span class="badge">日本語</span>
+    <h2>Related / 関連プロジェクト</h2>
+    <p>
+      <b><a href="/open-english">open-english</a></b> — the free, unlimited English/Japanese/
+      world-language learning web app this extension is a companion to, powered by
+      <code>aruaru-llm</code> + <code>aruaru-search</code> by default.
+      / この拡張機能の母体である、無料・無制限の日本語・英語・世界の言語学習Webアプリ
+      (既定で<code>aruaru-llm</code>+<code>aruaru-search</code>を利用)。
+    </p>
+    <p>
+      <b><a href="https://github.com/aon-co-jp">github.com/aon-co-jp</a></b> — the GitHub
+      organization behind this extension, open-english, aruaru-llm/aruaru-search, and the wider
+      open-source, self-hostable <code>open-*</code>/<code>aruaru-*</code> ecosystem.
+      / この拡張機能・open-english・aruaru-llm/aruaru-searchをはじめとする、
+      オープンソース(自前ホスト可能)な<code>open-*</code>/<code>aruaru-*</code>系
+      エコシステム全体を運営しているGitHub organizationです。
+    </p>
+  </div>
+
+</main>
+<footer>
+  MIT License · <a href="https://github.com/aon-co-jp/maid-cafe-programming-school/blob/main/README.md">README</a>
+  · <a href="https://github.com/aon-co-jp/maid-cafe-programming-school/issues">Issues</a>
+</footer>
+</body>
+</html>
