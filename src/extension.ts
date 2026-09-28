@@ -410,7 +410,7 @@ function isTroubledRequest(text: string): boolean {
 }
 function maybeCheerUpTroubled(context: vscode.ExtensionContext, text: string) {
   if (!isTroubledRequest(text)) return;
-  speak(context, "めっ！こらっ！いつまでも、くよくよ悩んでいちゃいけないんだぞ！萌え萌えキューン！");
+  speak(context, "めっ！いつまでも、くよくよ悩んでいちゃいけないんだぞ！こら！頑張ってね！萌え萌えキューン！お姉さんと一緒に頑張って行きましょ〜。");
 }
 
 // 2026-09-28追加(ユーザー指示「フリーランス案件をまとめて検索出来る
