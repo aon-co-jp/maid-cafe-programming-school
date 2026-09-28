@@ -59,6 +59,25 @@ VS Code拡張機能。`open-english`/`aruaru-llm`の既存API
      調整をしている(ユーザー指示、正直な開示: 実際の声質はOS/
      ブラウザの提供する音声次第で保証はできない)。
 
+## HANDOFF(2026-09-28 学習中BGM機能を追加)
+
+- ユーザー提案(「学習中にBGMが選択出来るの良いね」)を受け、
+  [`open-music-llm`](https://github.com/aon-co-jp/open-music-llm)(MusicGen)を
+  サブプロセスとして呼び出す「学習中BGM」機能を追加(`toggleStudyBgm`/
+  `generateStudyBgm`、設定`maidCafeSchool.studyBgm.*`)。
+- ユーザー指示「MusicGen生成(非商用範囲内)にしましょう、商用化しそうなら、その時に
+  警告して」への対応: `STUDY_BGM_LICENSE_NOTICE`(英日併記)を初回有効化時、および
+  前回確認から30日経過するごとに`showWarningMessage(..., {modal: true})`で表示し、
+  明示的な確認("I confirm non-commercial use / 非商用利用であることを確認する")
+  ボタンを押すまで機能を有効化しない設計(`ensureStudyBgmNonCommercialConfirmation`)。
+  **正直な開示**: 実際に商用化したかどうかをコードから検出する手段は無いため、
+  あくまで「定期的に思い出させる」自己申告制の仕組み。
+- 実装は`open-music-llm/python/generate.py`(同日実装済みの`--confirm-non-commercial-use`
+  ゲート)を`child_process.spawn`で呼ぶだけの薄いラッパー(音楽生成AIはこの拡張機能自体
+  には実装しない、既存方針どおり)。生成したWAVは非表示Webview上の`<audio>`で再生。
+- `npm run compile`(TypeScript型検査)のみ確認済み、VS Code拡張機能開発ホストでの
+  実クリック確認は未実施(既存の制約と同じ、下記参照)。
+
 ## 正直な開示・既知の制約
 
 - VS Code拡張機能のE2Eテスト(実際に拡張機能開発ホストを起動して
