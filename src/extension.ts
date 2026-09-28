@@ -60,6 +60,10 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("maidCafeSchool.toggleClaudeCombo", () => toggleClaudeCombo(context)),
     vscode.commands.registerCommand("maidCafeSchool.selectAiProvider", () => selectAiProvider(context)),
     vscode.commands.registerCommand("maidCafeSchool.toggleSpeakText", () => toggleSpeakText()),
+    vscode.commands.registerCommand("maidCafeSchool.openTypingCorner", () => openTypingCorner(context)),
+    vscode.commands.registerCommand("maidCafeSchool.openProgrammingBasics", () => openProgrammingBasics(context)),
+    vscode.commands.registerCommand("maidCafeSchool.openJavaScriptClassroom", () => openJavaScriptClassroom(context)),
+    vscode.commands.registerCommand("maidCafeSchool.todaysSampleTask", () => todaysSampleTask(context)),
     registerJobImportUriHandler(context)
   );
 
@@ -185,6 +189,10 @@ async function openMenu(context: vscode.ExtensionContext) {
         label: `$(unmute) テキスト内容をしゃべる: ${config.get<boolean>("speakText", true) ? "ON" : "OFF"} / Speak text: ${config.get<boolean>("speakText", true) ? "ON" : "OFF"}`,
         value: "speak",
       },
+      { label: "$(keyboard) キーボードタイピングコーナー / Keyboard Typing Corner", value: "typing" },
+      { label: "$(mortar-board) プログラミング基礎教室(幼稚園児にも分かるように) / Programming Basics", value: "basics" },
+      { label: "$(symbol-method) JavaScript教室(初心者向け) / JavaScript Classroom", value: "javascript" },
+      { label: "$(briefcase) 今日のサンプル案件 / Today's Sample Task", value: "sample" },
     ],
     { placeHolder: "Maid Cafe Programming School" }
   );
@@ -193,6 +201,10 @@ async function openMenu(context: vscode.ExtensionContext) {
   else if (pick.value === "study") await toggleStudyWhileDeveloping();
   else if (pick.value === "provider") await selectAiProvider(context);
   else if (pick.value === "speak") await toggleSpeakText();
+  else if (pick.value === "typing") await openTypingCorner(context);
+  else if (pick.value === "basics") await openProgrammingBasics(context);
+  else if (pick.value === "javascript") await openJavaScriptClassroom(context);
+  else if (pick.value === "sample") await todaysSampleTask(context);
 }
 
 function getAiProvider(context: vscode.ExtensionContext): AiProvider {
@@ -517,6 +529,417 @@ async function sendPromptToTeacher(
         `設定の"maidCafeSchool.aruaruLlmBaseUrl"と、aruaru-llmがローカルで起動しているかご確認ください。)`
     );
   }
+}
+
+// ユーザー指示(2026-09-28)「このメイドカフェオンラインパソコンスクールでは、
+// キーボードタイピングコーナーから始まって、キーボード入力がミスが０だと
+// パーフェクト、エクセレント、ナイス、おかえりなさいませ！ご主人様！、
+// 萌え萌えビーム、おいしくなーれ萌え萌えキューン、などと可愛くメイドさん
+// 風にしゃべる機能を付けて」——固定の練習文をタイプしてもらい、誤字数を
+// 数えるだけの簡易実装(既存の`speak()`をそのまま再利用、AI推論は経由
+// しない)。
+const TYPING_PRACTICE_SENTENCES = [
+  "こんにちは、せかい",
+  "プログラミングはたのしいです",
+  "おはようございます",
+  "きょうもがんばりましょう",
+  "ねこがつくえのうえにいます",
+  "The quick brown fox jumps.",
+  "Hello, world!",
+  "I love programming.",
+];
+const PERFECT_TYPING_PHRASES = [
+  "パーフェクト！",
+  "エクセレント！",
+  "ナイス！",
+  "おかえりなさいませ！ご主人様！",
+  "萌え萌えビーム！",
+  "おいしくなーれ、萌え萌えキューん。",
+];
+function pickRandom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+let typingPanel: vscode.WebviewPanel | undefined;
+
+async function openTypingCorner(context: vscode.ExtensionContext) {
+  const sentence = pickRandom(TYPING_PRACTICE_SENTENCES);
+  if (typingPanel) {
+    typingPanel.reveal(vscode.ViewColumn.Active);
+  } else {
+    typingPanel = vscode.window.createWebviewPanel(
+      "maidCafeSchoolTyping",
+      "⌨️ キーボードタイピングコーナー / Typing Corner",
+      vscode.ViewColumn.Active,
+      { enableScripts: true, retainContextWhenHidden: true }
+    );
+    typingPanel.onDidDispose(() => {
+      typingPanel = undefined;
+    });
+    context.subscriptions.push(typingPanel);
+    typingPanel.webview.onDidReceiveMessage((msg) => {
+      if (msg?.type === "result") {
+        const mistakes: number = msg.mistakes ?? 0;
+        if (mistakes === 0) {
+          speak(context, pickRandom(PERFECT_TYPING_PHRASES));
+        } else {
+          speak(context, `おしい！ミスが${mistakes}回ありました。もう一度がんばろう！`);
+        }
+      } else if (msg?.type === "next") {
+        renderTypingSentence(pickRandom(TYPING_PRACTICE_SENTENCES));
+      }
+    });
+  }
+  renderTypingSentence(sentence);
+
+  function renderTypingSentence(target: string) {
+    if (!typingPanel) return;
+    const escaped = target.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    typingPanel.webview.html = `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:1.5em;">
+      <h2>⌨️ キーボードタイピングコーナー / Keyboard Typing Corner</h2>
+      <p>このお手本の通りに入力してね！ / Type the sample exactly as shown!</p>
+      <p style="font-size:1.4em;letter-spacing:0.05em;background:#3a1a2a;color:#fff;padding:0.6em;border-radius:8px;">${escaped}</p>
+      <textarea id="input" rows="3" style="width:100%;font-size:1.2em;" autofocus></textarea>
+      <div style="margin-top:0.8em;">
+        <button id="submitBtn" style="font-size:1.1em;padding:0.4em 1em;">✅ 採点する / Grade it</button>
+        <button id="nextBtn" style="font-size:1.1em;padding:0.4em 1em;">🔁 次の問題 / Next</button>
+      </div>
+      <p id="result" style="font-size:1.2em;font-weight:bold;"></p>
+      <script>
+        const vscodeApi = acquireVsCodeApi();
+        const target = ${JSON.stringify(target)};
+        function countMistakes(input) {
+          const len = Math.max(target.length, input.length);
+          let mistakes = 0;
+          for (let i = 0; i < len; i++) {
+            if (target[i] !== input[i]) mistakes++;
+          }
+          return mistakes;
+        }
+        document.getElementById("submitBtn").addEventListener("click", () => {
+          const input = document.getElementById("input").value;
+          const mistakes = countMistakes(input);
+          document.getElementById("result").textContent =
+            mistakes === 0 ? "🎉 ミス0回！パーフェクト！" : "ミス: " + mistakes + "回";
+          vscodeApi.postMessage({ type: "result", mistakes });
+        });
+        document.getElementById("nextBtn").addEventListener("click", () => {
+          vscodeApi.postMessage({ type: "next" });
+        });
+      </script>
+    </body></html>`;
+  }
+}
+
+// ユーザー指示(2026-09-28)「プログラミング教室風に最初は、変数の概念や
+// forなどのループとの組合せ、簡単な5種類くらいの基本的なアルゴリズムの
+// 考えかたを保育園児や幼稚園児でも分かるような…非常に分かりやすくなんど
+// でも丁寧に教えてあげて、何度でも質問を受け付けてあげてください」+
+// 「変数やオブジェクト思考のクラスなどいくつかの基本の考え方の概念…、
+// グローバル変数をしようしないプログラムの書き方をお手本を…適用」——
+// 幼稚園児向けの説明文を1つのドキュメントとして開き、その内容を踏まえて
+// 何度でもAI先生へ質問できる導線を用意する(固定の説明文自体はAI推論を
+// 経由しない、正直な開示)。
+const PROGRAMMING_BASICS_LESSON = `# 🎀 プログラミング基礎教室(幼稚園児にも分かるように) / Programming Basics for Little Kids
+
+## 1. 「へんすう(変数)」ってなあに？ / What is a "variable"?
+
+**へんすうは、名前のついた「はこ」だよ！**
+はこの中に、すきな物(数字や文字)を入れておけるの。あとで見たいときは、
+その「はこの名前」を呼べば、中身がわかるよ！
+
+\`\`\`js
+let ohayo = "おはよう"; // "ohayo" というはこに "おはよう" を入れた！
+console.log(ohayo); // はこの中身を見てみる → おはよう
+\`\`\`
+
+A **variable** is a labeled box. You put something inside it (a number or
+some text), and later you can peek inside just by saying its name.
+
+## 2. 「for」ってなあに？(くりかえしの魔法) / What is a "for" loop?
+
+**forは「おなじことを、なんかいもくりかえす」魔法のじゅもんだよ！**
+「1から5まで、1こずつ数える」みたいに、めんどくさいことを何回も自分で
+書かなくていいように、コンピューターにおまかせできるの。
+
+\`\`\`js
+for (let i = 1; i <= 5; i++) {
+  console.log(i + "かいめ！"); // 1かいめ！ 2かいめ！ ... 5かいめ！
+}
+\`\`\`
+
+A **for loop** is a magic spell that repeats the same thing many times,
+so you don't have to write it out by hand.
+
+## 3. 「へんすう」+「for」を組み合わせてみよう / Combining variables and loops
+
+\`\`\`js
+let total = 0; // "total" というはこに、0を入れておく(まだ空っぽ)
+for (let i = 1; i <= 3; i++) {
+  total = total + i; // はこの中身に、いまの数字をたしていく
+}
+console.log(total); // 1+2+3 = 6
+\`\`\`
+
+## 4. きほんの「アルゴリズム(かんがえかた)」5つ / 5 Basic Algorithm Ideas
+
+1. **かぞえる(Counting)**: 1から順番に数えて、いくつあるかを数える。
+   forを使って「箱の中身に1ずつ足していく」だけ。
+2. **いちばん大きいのをさがす(Finding the max)**: 1つずつ見て、
+   「今までで一番おおきい数」をはこに入れておいて、もっと大きいのが
+   見つかったら入れ替える。
+3. **じゅんばんにならべる(Sorting、バブルソートのかんがえかた)**: お隣同士を
+   くらべて、順番が逆だったら入れ替える、を何回もくりかえすと、
+   だんだん順番にならぶよ(小さい方から大きい方へ)。
+4. **さがしもの(Searching、線形探索)**: 1つずつ順番に見ていって、
+   「これだ！」というものが見つかるまで探す。
+5. **ごうけいをけいさんする(Summing)**: はこに0を入れておいて、
+   1つずつ見つけるたびに、はこの中身にたしていく(上の3番の例と同じ)。
+
+## 5. 「クラス」ってなあに？(おなじ形をつくる「型ぬき」) / What is a "class"?
+
+**クラスは、クッキーの「型ぬき」だよ！**
+1つの型ぬきがあれば、同じ形のクッキーをたくさん作れるよね？
+プログラムでも、「同じ形(=同じデータと動き)」を持ったものを
+たくさん作りたいときに、クラスという「型ぬき」を使うの。
+
+\`\`\`js
+class Neko {
+  constructor(namae) {
+    this.namae = namae; // このネコの名前を入れるはこ
+  }
+  naku() {
+    console.log(this.namae + "が「にゃー」って鳴いたよ！");
+  }
+}
+const tama = new Neko("たま"); // 型ぬきから「たま」というネコを1匹作った
+tama.naku(); // たまが「にゃー」って鳴いたよ！
+\`\`\`
+
+A **class** is like a cookie cutter — one shape lets you stamp out many
+cookies (objects) that all share the same data and behavior.
+
+## 6. 「グローバル変数」には気をつけよう / Watch out for "global variables"
+
+**グローバル変数は、教室のまんなかに置いた「みんなの共有はこ」だよ。**
+みんなが自由に中身を書き換えられるから、誰かが勝手に書き換えると、
+他の人がびっくりしちゃう(バグの原因になりやすい)。だから、なるべく
+「自分専用のはこ」(関数の中だけで使う変数や、クラスの中の変数)を
+使うのがお行儀がいいんだよ。AI先生は、あなたのプログラムを見て、
+グローバル変数を使いすぎているなと思ったら、「自分専用のはこ」に
+書き換えるお手本を、今使っている言語・フレームワークに合わせて
+教えてくれるよ。
+
+A **global variable** is like a shared box in the middle of the
+classroom — anyone can change it, which can surprise other parts of the
+program (a common source of bugs). Prefer variables scoped to a
+function or a class instead. If the AI teacher notices you're relying
+on too many global variables, it can show you how to rewrite the code
+without them, tailored to the language/framework you're currently using.
+
+---
+
+わからないところがあったら、下の「🎓 AI先生に何度でも質問する」ボタンを
+押して、いつでも何度でも質問してね！ぜんぶ丁寧に教えてあげるよ！
+If anything is unclear, use the "🎓 Ask the AI Teacher" button below —
+you can ask as many times as you like, and it will explain patiently.
+`;
+
+async function openProgrammingBasics(context: vscode.ExtensionContext) {
+  const doc = await vscode.workspace.openTextDocument({
+    content: PROGRAMMING_BASICS_LESSON,
+    language: "markdown",
+  });
+  await vscode.window.showTextDocument(doc, { preview: false });
+  await offerUnlimitedLessonQuestions(context, "プログラミング基礎教室(変数・forループ・5つの基本アルゴリズム・クラス・グローバル変数)");
+}
+
+// ユーザー指示(2026-09-28)「初心者向けにJavaScript教室も機能で開催して、
+// すぐにJavaScriptからTypeScriptに移った方が良いと案内」+「非同期処理の
+// 基本を学んだ後にAIにその処理を書かせる指示の出し方も学べるように」。
+const JAVASCRIPT_CLASSROOM_LESSON = `# 💛 JavaScript教室(初心者向け) / JavaScript Classroom for Beginners
+
+## JavaScriptって何？ / What is JavaScript?
+
+Webページを動かすためのプログラミング言語だよ。ボタンを押したら何かが
+起きる、みたいな「うごき」を作れるんだ。
+
+## さっそく書いてみよう / Let's write some
+
+\`\`\`js
+let name = "たろう";
+console.log("こんにちは、" + name + "さん！");
+\`\`\`
+
+## 📣 大事なお知らせ: すぐにTypeScriptへ移りましょう / Important: move to TypeScript soon
+
+**JavaScriptに慣れてきたら、できるだけ早くTypeScriptへ移ることを
+おすすめします。** TypeScriptはJavaScriptに「型(かた)」という、
+値の種類をあらかじめ決めておく仕組みを足した言語で、AI先生や
+エディタが「ここ、まちがっているよ！」と早めに教えてくれるように
+なります。JavaScriptの書き方はほぼそのまま使えるので、こわがらなくて
+大丈夫。
+
+\`\`\`ts
+// TypeScript版: nameは「文字だけ」と決めておける
+let name: string = "たろう";
+\`\`\`
+
+**We strongly recommend moving from JavaScript to TypeScript as soon as
+you're comfortable** — TypeScript adds "types" (declaring what kind of
+value a variable holds), so your editor and the AI teacher can catch
+mistakes earlier. Almost everything you already know from JavaScript
+carries over directly.
+
+## 非同期処理(asynchronous)の基本 / Basics of async processing
+
+「時間がかかる作業(インターネットから何かを取ってくる、など)を
+待っている間も、他のことができるようにする」仕組みが非同期処理だよ。
+JavaScript/TypeScriptでは主に\`async\`/\`await\`を使う。
+
+\`\`\`js
+async function getMessage() {
+  const response = await fetch("https://example.com/message.json");
+  const data = await response.json();
+  console.log(data.message);
+}
+\`\`\`
+
+- \`async function\` … 「この関数の中では、待つ処理があるよ」という印。
+- \`await\` … 「この行の結果が返ってくるまで、ここで待つよ」という意味。
+
+## 非同期処理をAIに書かせる指示の出し方 / How to ask the AI to write async code for you
+
+非同期処理をAIに書いてもらう時は、以下をはっきり伝えると良い結果に
+なりやすいです:
+
+1. **何を待つ処理か**(例: 「APIからデータを取ってくる」「ファイルを
+   読み込む」)。
+2. **成功した時に何をしてほしいか**(例: 「取得したデータを画面に
+   表示する」)。
+3. **失敗した時にどうしてほしいか**(例: 「エラーメッセージを表示する」
+   ——\`try\`/\`catch\`で囲んでほしい、と伝えると分かりやすい)。
+4. **使っている言語・フレームワーク**(例: 「TypeScript + React
+   です」)。
+
+例: 「TypeScript + Reactで、\`/api/users\`から利用者一覧を取得する
+非同期関数を書いてください。取得できたら一覧を表示し、失敗したら
+エラーメッセージを表示するようにしてください。」
+
+When asking the AI to write async code, it helps to state clearly:
+(1) what slow operation you're waiting on, (2) what should happen on
+success, (3) what should happen on failure (mention you want
+\`try\`/\`catch\`), and (4) which language/framework you're using.
+
+---
+
+わからないところは「🎓 AI先生に何度でも質問する」ボタンでいつでも
+聞いてね！
+`;
+
+async function openJavaScriptClassroom(context: vscode.ExtensionContext) {
+  const doc = await vscode.workspace.openTextDocument({
+    content: JAVASCRIPT_CLASSROOM_LESSON,
+    language: "markdown",
+  });
+  await vscode.window.showTextDocument(doc, { preview: false });
+  await offerUnlimitedLessonQuestions(context, "JavaScript教室(基礎・TypeScriptへの移行・非同期処理とAIへの指示の出し方)");
+}
+
+/**
+ * どのレッスンからでも呼べる「何度でも質問する」導線。1回のコマンド呼び
+ * 出しで1問だけ受け付け、送信後に「もう一度質問しますか？」と尋ねること
+ * で「何度でも質問を受け付けて」という要望を満たす(無限ループを避ける
+ * ため、都度ユーザーの明示的な選択を挟む)。
+ */
+async function offerUnlimitedLessonQuestions(context: vscode.ExtensionContext, lessonLabel: string) {
+  for (;;) {
+    const proceed = await vscode.window.showInformationMessage(
+      `${lessonLabel}について、AI先生に質問しますか？(何度でも聞けます) / Ask the AI teacher about "${lessonLabel}"? (ask as many times as you like)`,
+      "🎓 質問する / Ask",
+      "終わる / Done"
+    );
+    if (proceed !== "🎓 質問する / Ask") return;
+    const question = await vscode.window.showInputBox({
+      title: `AI先生に質問する / Ask the AI Teacher (${lessonLabel})`,
+      prompt: "わからないところを何でも聞いてね(何度でもOK) / Ask anything — as many times as you like",
+      ignoreFocusOut: true,
+    });
+    if (!question) continue;
+    const prompt =
+      `【${lessonLabel}についての質問です】\n${question}\n\n` +
+      "保育園児・幼稚園児にも分かるくらい、とても丁寧に、やさしい言葉で説明してください。 / " +
+      "Please explain this as simply and patiently as you would to a kindergartner.";
+    await sendPromptToTeacher(context, question, prompt, /* skipStudyToggle */ true);
+  }
+}
+
+// ユーザー指示(2026-09-28)「サンプルの課題の様な問題の様な、実際の
+// フリーランスの案件を検索したり、AIがネットから自動でチョイスして
+// 自動で選択して今日のサンプルなども題材に出来るようにして」——
+// 姉妹プロジェクト`aruaru-jobs`の検索APIを叩き、返ってきた案件の中から
+// 1件をランダムに「今日のサンプル課題」として選び、その内容をレッスン
+// 教材として質問へ繋げる。**正直な開示**: 「AIが自動でチョイス」の実体は
+// 単純なランダム選択であり、案件の質・難易度をAIが判定して選んでいる
+// わけではない。
+async function todaysSampleTask(context: vscode.ExtensionContext) {
+  const config = vscode.workspace.getConfiguration("maidCafeSchool");
+  const jobsBaseUrl = config.get<string>("aruaruJobsBaseUrl", "https://easy-web.tokyo/aruaru-jobs");
+  const query = await vscode.window.showInputBox({
+    title: "今日のサンプル課題 / Today's Sample Task",
+    prompt:
+      "どんな案件を題材にしたいですか？(例: 初心者向け Webサイト) / What kind of job listing would you like as material? (e.g. beginner-friendly website)",
+    value: "初心者 プログラミング",
+    ignoreFocusOut: true,
+  });
+  if (!query) return;
+
+  outputChannel.show(true);
+  outputChannel.appendLine(`\n--- 今日のサンプル課題を検索中... / Searching today's sample task... ---`);
+  try {
+    const data = await postJson(`${jobsBaseUrl}/api/jobs/search`, { query });
+    const items: any[] = extractJobItems(data?.results);
+    if (items.length === 0) {
+      outputChannel.appendLine("案件が見つかりませんでした。 / No job listings found.");
+      vscode.window.showWarningMessage(
+        "案件が見つかりませんでした。aruaru-jobsの接続先設定をご確認ください。 / " +
+          "No job listings found. Please check the maidCafeSchool.aruaruJobsBaseUrl setting."
+      );
+      return;
+    }
+    const picked = pickRandom(items);
+    const title: string = picked.title || picked.url || "無題の案件";
+    const url: string = picked.url || picked.link || "";
+    const snippet: string = picked.snippet || picked.description || "";
+    outputChannel.appendLine(`🎯 今日のサンプル課題 / Today's sample task: ${title}\n${url}\n${snippet}`);
+
+    const prompt =
+      `以下の実際のフリーランス案件を題材に、プログラミングの練習をしたいです。 / ` +
+      `I'd like to practice programming using this real freelance job listing as material.\n\n` +
+      `Title / タイトル: ${title}\nURL: ${url}\nSnippet / 抜粋: ${snippet}\n\n` +
+      "この案件の内容を、保育園児・幼稚園児にも分かるくらいやさしく解説した上で、" +
+      "初心者でも取り組める簡単な練習課題に落とし込んでください。 / " +
+      "Please explain this listing as simply as you would to a kindergartner, then turn it into a simple beginner-friendly practice exercise.";
+    await sendPromptToTeacher(context, `Today's sample task: ${title}`, prompt, /* skipStudyToggle */ true);
+    await offerUnlimitedLessonQuestions(context, `今日のサンプル課題「${title}」`);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    outputChannel.appendLine(
+      `⚠ aruaru-jobs(${jobsBaseUrl})へ到達できませんでした: ${message}\n` +
+        `⚠ Could not reach aruaru-jobs at ${jobsBaseUrl}: ${message}`
+    );
+    vscode.window.showWarningMessage(
+      `aruaru-jobsへ到達できませんでした。設定"maidCafeSchool.aruaruJobsBaseUrl"をご確認ください。 / ` +
+        `Could not reach aruaru-jobs. Please check the "maidCafeSchool.aruaruJobsBaseUrl" setting.`
+    );
+  }
+}
+
+function extractJobItems(results: unknown): any[] {
+  if (Array.isArray((results as any)?.items)) return (results as any).items;
+  if (Array.isArray((results as any)?.results)) return (results as any).results;
+  if (Array.isArray(results)) return results as any[];
+  return [];
 }
 
 /** Minimal JSON POST helper using Node's built-in http/https (no extra runtime dependency). */

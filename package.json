@@ -53,6 +53,22 @@
       {
         "command": "maidCafeSchool.toggleSpeakText",
         "title": "Maid Cafe School: Toggle \"Speak Text\" / 「テキスト内容をしゃべる」の切替"
+      },
+      {
+        "command": "maidCafeSchool.openTypingCorner",
+        "title": "Maid Cafe School: Keyboard Typing Corner / キーボードタイピングコーナー"
+      },
+      {
+        "command": "maidCafeSchool.openProgrammingBasics",
+        "title": "Maid Cafe School: Programming Basics (kid-friendly) / プログラミング基礎教室"
+      },
+      {
+        "command": "maidCafeSchool.openJavaScriptClassroom",
+        "title": "Maid Cafe School: JavaScript Classroom / JavaScript教室"
+      },
+      {
+        "command": "maidCafeSchool.todaysSampleTask",
+        "title": "Maid Cafe School: Today's Sample Task (from aruaru-jobs) / 今日のサンプル案件"
       }
     ],
     "configuration": {
@@ -77,6 +93,11 @@
           "type": "boolean",
           "default": true,
           "description": "Speak the greeting and the AI teacher's replies aloud (default ON; your choice is remembered in VS Code settings). / 出迎えの挨拶とAI先生の回答をしゃべる(既定ON、チェックの状態はVS Codeの設定に記憶されます)。"
+        },
+        "maidCafeSchool.aruaruJobsBaseUrl": {
+          "type": "string",
+          "default": "https://easy-web.tokyo/aruaru-jobs",
+          "description": "Base URL of the aruaru-jobs freelance job search site, used by \"Today's Sample Task\". / 「今日のサンプル案件」機能が使うaruaru-jobsの接続先URL。"
         }
       }
     }
