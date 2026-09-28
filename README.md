@@ -96,13 +96,15 @@ the scope of what Claude is allowed to do is always up to you.*
 
 ## 無料のGitHub→GitLab自動バックアップ同期も、Claudeに開発を依頼できる / You can also ask Claude to build free GitHub → GitLab auto-backup sync
 
-無料のGitLabをバックアップ先として選択すると、1リポジトリあたりの最大容量は**10GBまで**と
-なっております。GitHubの無料の機能を使って、GitLabなど他のサイトへ自動でバックアップの
-同期を取るシステムの開発を、Claudeなどに依頼することも可能です。
+非公開型か公開型かどうかは、ユーザーの皆様にご選択して頂き、無料のGitHubのバックアップ先に
+GitLabを選択すると、1リポジトリあたりの最大容量は**10GBまで**となっております。GitHubの
+無料の機能で、GitLabなど他のサイトに自動でバックアップの同期を取るシステムの開発を、
+Claudeなどに依頼することも可能です。
 
-*(EN)* If you choose free GitLab as a backup destination, the maximum size per repository is
-**up to 10GB**. Using GitHub's free features, you can also ask Claude to develop a system that
-automatically syncs backups to other sites such as GitLab.
+*(EN)* Whether your repository is private or public is entirely your choice. If you choose
+GitLab as the free backup destination for your GitHub repository, the maximum size per
+repository is **up to 10GB**. Using GitHub's free features, you can also ask Claude to develop
+a system that automatically syncs backups to other sites such as GitLab.
 
 **正直な開示 / Honest disclosure**: これもこの拡張機能自体の機能ではなく、Claude Code
 一般の機能です。実際の同期方法(GitHub Actions経由・VPS上の定期ジョブ等)は要件次第です。
