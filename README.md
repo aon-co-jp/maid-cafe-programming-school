@@ -68,6 +68,32 @@
   (高めのpitch・やや遅めのrate・可能なら女性寄りの日本語音声を自動選択)で読み上げます。
   チェックの状態はVS Codeの設定に記憶されるため、一度ONにすれば次回以降も引き継がれます。
 
+## Claude Code(有料版)なら、GitHub・VPS・ローカルドライブの操作も自動化できる / With paid Claude Code, automate GitHub, your VPS, and local files too
+
+有料版のClaude Code(Desktop/CLI)をご利用の場合、無料のGitHub(公開リポジトリ・非公開
+リポジトリのどちらも選択可能)でトークンを発行してローカルドライブに保存し、Claudeに
+その場所を指定するだけで、新規リポジトリ作成や`push`等のアップロード、読み書きの自動化が
+可能になります。VPSレンタルサーバー(有料)をご契約の場合も同様に、秘密鍵・公開鍵を
+ローカルドライブに保存してClaudeに指定すれば(GitHubトークンと同じ要領です)、VPSへの
+アップロード・ダウンロード、フォルダ名・ファイル名の変更や削除まで自動化できます。
+もちろん、ローカルドライブ上のフォルダ作成・削除・読み書きの自動化も可能です。
+
+*(EN)* With paid Claude Code (Desktop/CLI), you can issue a token for your free GitHub account
+(public or private repositories, your choice), save it to your local drive, and simply point
+Claude to it — enabling automated repository creation, pushing/uploading, and reading/writing
+files. Likewise, once you have a paid VPS rental server, saving your private and public SSH
+keys to your local drive and pointing Claude to them (the same way as the GitHub token) enables
+automated uploading/downloading to the VPS, as well as renaming or deleting folders and files
+there. Automating folder creation, deletion, and read/write operations on your local drive is
+possible too.
+
+**正直な開示 / Honest disclosure**: これはこの拡張機能自体の機能ではなく、Claude Code
+(Anthropicが提供するAIコーディングエージェント)一般の機能です。トークンや秘密鍵は
+ユーザーご自身が用意・管理するものであり、Claudeに与える操作範囲・権限は常にユーザーの
+判断に委ねられます。 *This is a general capability of Claude Code itself, not a feature of
+this extension — tokens and private keys are something you provide and control yourself, and
+the scope of what Claude is allowed to do is always up to you.*
+
 ## 正直な開示(誇張しないこと)
 
 - **AI推論・検索(aruaru-search)は、この拡張機能自体には一切実装されていません**——すべて
