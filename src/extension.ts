@@ -11,8 +11,8 @@ import * as path from "path";
 // しまう限界があった(ユーザー指示「この機能はChatだけだと限界があるので、
 // Visual Studio Codeのプラグインも開発して機能させて」への対応)。
 //
-// このプラグインは、open-english/aruaru-llmの既存API(`/v1/generate-with-
-// search`・`/v1/chat-providers/complete-priority`)へエディタから直接
+// このプラグインは、open-english/aruaru-llmの既存API(Connect(`aruaru_llm.v1.Llm/GenerateWithSearch`・
+// `ChatProvidersCompletePriority`、POST))へエディタから直接
 // 質問を送るだけの薄いクライアントであり、AI推論・検索(aruaru-search)は
 // 一切実装しない——既存のaruaru-llmサーバーが担う。
 
@@ -24,8 +24,8 @@ const CLAUDE_COMBO_PROJECT_NAME_KEY = "maidCafeSchool.claudeComboProjectName";
 // ユーザー指示(2026-09-28)「AIの先生は、基本は、aruaru-llm+無料のGoogleか、
 // ChatGptかGeminiかDeepSeekかGrokか有料のClaudeかを選択可能にして」——
 // 既定は"aruaru"(aruaru-search優先・自信が無い時のみ無料枠Google検索、
-// 既存の`/v1/generate-with-search`経由)。それ以外を選ぶと、
-// aruaru-llmの`/v1/chat-providers/complete-priority`経由でクラウド
+// 既存の`aruaru_llm.v1.Llm/GenerateWithSearch`経由)。それ以外を選ぶと、
+// aruaru-llmの`aruaru_llm.v1.Llm/ChatProvidersCompletePriority`経由でクラウド
 // プロバイダを直接指定する(各プロバイダ自身のAPIキーが必要、
 // Claudeのみ既存の「新規/既存プロジェクト」導線も併用)。
 type AiProvider = "aruaru" | "chatgpt" | "gemini" | "deepseek" | "grok" | "claude";
@@ -50,7 +50,7 @@ let bgmPanel: vscode.WebviewPanel | undefined;
 // 学習中BGM(aruaru-search/archive.org連携)。ユーザー指示(2026-09-28)
 // 「実際に組み込むのはarchive.orgのライセンス確認済み音源なら商用化しても
 // OKな方でお願いします」への対応——当初検討したopen-music-llm(MusicGen、
-// CC-BY-NC限定=非商用限定)ではなく、`aruaru-search`の`/v1/media-search`
+// CC-BY-NC限定=非商用限定)ではなく、`aruaru-search`のConnect `aruaru_llm.v1.Llm/MediaSearch`(POST)
 // (archive.org横断検索、パブリックドメイン・CC0・CC-BY・CC-BY-SAのみに
 // 既に絞り込み済み——CC-BY-NC等は`aruaru-search`側で除外される)を
 // `aruaru-llm`経由でプロキシして使う(この拡張機能は`aruaru-llm`にしか
@@ -393,7 +393,7 @@ interface MediaHit {
 let lastStudyBgmIdentifier: string | undefined;
 
 // `aruaru-llm`(既存の唯一の接続先、`aruaruLlmBaseUrl`)経由で、`aruaru-search`の
-// `/v1/media-search`(archive.org横断検索、パブリックドメイン・CC0・CC-BY・CC-BY-SAのみ)を
+// Connect `aruaru_llm.v1.Llm/MediaSearch`(POST)(archive.org横断検索、パブリックドメイン・CC0・CC-BY・CC-BY-SAのみ)を
 // 呼び出し、ストリーミング可能な音源をWebview上の<audio>で再生する。この拡張機能自体は
 // 音楽生成・検索を一切実装していない(既存方針どおりの薄いクライアント)。コマンドからも
 // Webviewの「⏭ スキップ」ボタン(`ensureBgmPanel`の`onDidReceiveMessage`)からも呼ばれる。
@@ -403,10 +403,10 @@ async function playNextStudyBgmTrack(context: vscode.ExtensionContext) {
   const prompt = config.get<string>("studyBgm.prompt", "gentle lo-fi piano melody for studying");
 
   outputChannel.show(true);
-  outputChannel.appendLine(`(study bgm) searching archive.org via ${baseUrl}/v1/media-search?q=${prompt}`);
+  outputChannel.appendLine(`(study bgm) searching archive.org via ${baseUrl}/aruaru_llm.v1.Llm/MediaSearch (q=${prompt})`);
 
   try {
-    const data = await getJson(`${baseUrl}/v1/media-search?q=${encodeURIComponent(prompt)}&n=10`);
+    const data = await postJson(`${baseUrl}/aruaru_llm.v1.Llm/MediaSearch`, { q: prompt, n: 10 });
     const hits: MediaHit[] = Array.isArray(data?.results) ? data.results : [];
     let playable = hits.filter((h) => !!h.stream_url);
     if (playable.length === 0) {
@@ -792,9 +792,9 @@ async function sendPromptToTeacher(
     if (provider === "aruaru") {
       // 既定経路: aruaru-search(無制限・APIキー不要)を最優先で試し、
       // 自信が無い時だけ無料枠のGoogle検索で補う、open-english web版と
-      // 同じ`/v1/generate-with-search`。
+      // 同じ`aruaru_llm.v1.Llm/GenerateWithSearch`。
       const body: Record<string, unknown> = { prompt, max_new_tokens: 96 };
-      const data = await postJson(`${baseUrl}/v1/generate-with-search`, body);
+      const data = await postJson(`${baseUrl}/aruaru_llm.v1.Llm/GenerateWithSearch`, body);
       responseText =
         (data && typeof data.completion === "string" && data.completion) ||
         (data && typeof data.error === "string" && `⚠ ${data.error}`) ||
@@ -810,7 +810,7 @@ async function sendPromptToTeacher(
         use_github_search: useGithub,
       };
       if (apiKey) body.provider_keys = { [provider]: apiKey };
-      const data = await postJson(`${baseUrl}/v1/chat-providers/complete-priority`, body);
+      const data = await postJson(`${baseUrl}/aruaru_llm.v1.Llm/ChatProvidersCompletePriority`, body);
       responseText =
         (data && data.reply && typeof data.reply.text === "string" && data.reply.text) ||
         (data && typeof data.error === "string" && `⚠ ${data.error}`) ||
@@ -1578,43 +1578,6 @@ function postJson(url: string, body: unknown): Promise<any> {
     req.on("timeout", () => req.destroy(new Error("request timed out")));
     req.on("error", reject);
     req.write(payload);
-    req.end();
-  });
-}
-
-function getJson(url: string): Promise<any> {
-  return new Promise((resolve, reject) => {
-    let target: URL;
-    try {
-      target = new URL(url);
-    } catch (e) {
-      reject(new Error(`invalid URL: ${url}`));
-      return;
-    }
-    const client = target.protocol === "https:" ? https : http;
-    const req = client.request(
-      {
-        hostname: target.hostname,
-        port: target.port || (target.protocol === "https:" ? 443 : 80),
-        path: target.pathname + target.search,
-        method: "GET",
-        timeout: 30000,
-      },
-      (res) => {
-        const chunks: Buffer[] = [];
-        res.on("data", (chunk) => chunks.push(chunk));
-        res.on("end", () => {
-          const text = Buffer.concat(chunks).toString("utf-8");
-          try {
-            resolve(text ? JSON.parse(text) : {});
-          } catch (e) {
-            resolve({ raw: text });
-          }
-        });
-      }
-    );
-    req.on("timeout", () => req.destroy(new Error("request timed out")));
-    req.on("error", reject);
     req.end();
   });
 }
