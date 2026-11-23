@@ -196,3 +196,7 @@ GitHub-repo introduction page hosted under `easy-web.tokyo`.
 - **WASM по-прежнему остаётся технологией для интерфейса.** Изменилось лишь то, что вызываемый им API теперь построен на Connect.
 - Интерфейсы, форма которых задана внешним стандартом (ACME, обратные вызовы OAuth, вебхуки сторонних сервисов, проверки работоспособности, статические файлы, OTLP), остаются обычным HTTP.
 - **Если есть сомнения — выбирайте Connect.**
+
+## 2026-11-24 REST から Connect へ / Moved from REST to Connect
+**日本語**: aruaru-llm の REST が VPS で 404 になっていたため、拡張機能の呼び出しを Connect(POST、`aruaru_llm.v1.Llm/{MediaSearch,GenerateWithSearch,ChatProvidersCompletePriority}`)へ移行。未使用になった `getJson` を削除。
+**English**: aruaru-llm's REST now returns 404 on the VPS, so the extension's calls moved to Connect (POST, `aruaru_llm.v1.Llm/{MediaSearch,GenerateWithSearch,ChatProvidersCompletePriority}`); the unused `getJson` was removed.

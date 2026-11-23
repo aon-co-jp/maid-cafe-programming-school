@@ -38,7 +38,7 @@
   READMEに従ってご自身で行ってください。
 - **学習中BGM(archive.org、商用利用可)**: コマンドパレット「学習中BGMを今すぐ生成・再生」、
   または`maidCafeSchool.studyBgm.enabled`設定から、[`aruaru-search`](https://github.com/aon-co-jp/aruaru-search)
-  の`/v1/media-search`(`aruaru-llm`経由でプロキシ)でarchive.orgの音源を検索・
+  のConnect `aruaru_llm.v1.Llm/MediaSearch`(POST)(`aruaru-llm`経由でプロキシ)でarchive.orgの音源を検索・
   ストリーミング再生できます。**パブリックドメイン・CC0・CC-BY・CC-BY-SAのみに
   限定済み**(CC-BY-NC等の非商用限定ライセンスは`aruaru-search`側で最初から除外)
   ——**商用利用も可能**です。再生パネルには**曲名・歌手名(演奏者)を表示**し、
@@ -54,7 +54,7 @@
   (日英正本+世界約130ヶ国語のAI翻訳)を開けます。再生中の音源のクレジット・
   ライセンスリンクは、BGMパネル内に常時表示されます。
   *(EN) Study BGM streams tracks from archive.org via `aruaru-search`'s
-  `/v1/media-search` (proxied through `aruaru-llm`), limited to Public Domain, CC0,
+  Connect `aruaru_llm.v1.Llm/MediaSearch`(POST) (proxied through `aruaru-llm`), limited to Public Domain, CC0,
   CC-BY, and CC-BY-SA licenses — **commercial use is allowed**. Important: for
   non-Public-Domain tracks (CC-BY / CC-BY-SA), commercial use legally requires
   attribution (credit the creator, link to the license). A bilingual notice is shown
@@ -131,13 +131,13 @@ sync mechanism depends on your requirements.*
 - **学習中BGM機能は、この拡張機能自体には検索・音楽生成AIを一切実装していません**——
   既存アーキテクチャ方針どおり`aruaru-llm`(`aruaruLlmBaseUrl`)へHTTPで問い合わせる
   だけの薄いラッパーで、実際のarchive.org検索・ライセンス絞り込みは`aruaru-llm`が
-  プロキシする`aruaru-search`の`/v1/media-search`が行います。`aruaru-llm`が未起動の場合、
+  プロキシする`aruaru-search`のConnect `aruaru_llm.v1.Llm/MediaSearch`(POST)が行います。`aruaru-llm`が未起動の場合、
   この拡張機能は接続エラーを正直に表示するだけです。**表示義務についての通知は
   自己申告・自己確認の仕組みであり(CC-BY/CC-BY-SAのライセンス表示義務そのものを技術的に
   強制する手段はありません)、あくまで利用者に思い出させるためのものです。**
   *(EN) The Study BGM feature implements no search or music-generation AI of its own — it
   is a thin HTTP client to your local `aruaru-llm` (`aruaruLlmBaseUrl`), which proxies
-  `aruaru-search`'s `/v1/media-search` (the actual archive.org search and license
+  `aruaru-search`'s `Search/MediaSearch` (Connect, via `aruaru_llm.v1.Llm/MediaSearch`) (the actual archive.org search and license
   filtering happens there). The attribution-obligation notice is a self-attestation/
   reminder mechanism only; there is no technical way to enforce the CC-BY/CC-BY-SA
   attribution requirement from code.*
