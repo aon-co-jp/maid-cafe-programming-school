@@ -239,3 +239,18 @@ VS Code拡張機能。`open-english`/`aruaru-llm`の既存API
 - **WASM по-прежнему остаётся технологией для интерфейса.** Изменилось лишь то, что вызываемый им API теперь построен на Connect.
 - Интерфейсы, форма которых задана внешним стандартом (ACME, обратные вызовы OAuth, вебхуки сторонних сервисов, проверки работоспособности, статические файлы, OTLP), остаются обычным HTTP.
 - **Если есть сомнения — выбирайте Connect.**
+
+## 2026-11-24 オンラインスクールとしての評価 / Assessment as an online school
+**日本語**
+- **位置づけ(正直な開示)**: 現在の拡張機能は「AI先生に質問するための薄いクライアント」で、オンラインプログラミングスクールとしては**機能が足りていない**。
+- **ある**: AI先生への質問(選択コード・ファイルパス付き)、学習モードと題材の選択、タイピングコーナー・プログラミング基礎・JavaScript 教室・今日のサンプル課題(中身は未確認)、学習中BGM、案件(aruaru-jobs)の取り込み。
+- **足りない**: ①順序立てたカリキュラムとレベル分け ②自動採点つきの演習(ローカルでテストを実行し合否とヒントを返す) ③進捗の記録と次の単元の提案 ④人による支援(レビュー・質問対応・修了証・受講生の場) ⑤アカウント・受講管理・支払い。
+- **前提の弱さ**: AI先生は aruaru-llm の稼働が前提で、止まっている間は質問できない。
+- **次の一手(未着手)**: 自動採点つきの小さな演習を1つ作る(ローカルでテスト実行→合否)。進捗の記録はその結果を保存するだけで足りる。
+
+**English**
+- **Positioning (honest disclosure)**: the extension is currently a thin client for asking the AI teacher, and as an online programming school it is **not feature-complete**.
+- **Present**: asking the AI teacher (with selected code and file path), learning modes and topics, typing corner, programming basics, JavaScript classroom, today's sample task (contents not verified), study BGM, importing jobs from aruaru-jobs.
+- **Missing**: (1) an ordered curriculum with levels; (2) auto-graded exercises (run tests locally, return pass/fail and hints); (3) progress records and next-unit suggestions; (4) human support (reviews, Q&A, certificates, a learner community); (5) accounts, enrollment management and payment.
+- **Weak dependency**: the AI teacher requires aruaru-llm to be running; no questions can be asked while it is down.
+- **Next step (not started)**: build one small auto-graded exercise (run tests locally, pass/fail). Progress records then only need to store that result.
