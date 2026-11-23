@@ -2,7 +2,7 @@
   "name": "maid-cafe-programming-school",
   "displayName": "Maid Cafe Programming School",
   "description": "Ask your local aruaru-llm AI teacher, grounded by aruaru-search (unlimited, key-free) + optional GitHub investigation, right from VS Code — the companion extension to open-english. Optionally incorporate your own paid Claude subscription.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "aon-co-jp",
   "license": "MIT",
   "icon": "media/icon.png",

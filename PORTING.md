@@ -200,3 +200,7 @@ GitHub-repo introduction page hosted under `easy-web.tokyo`.
 ## 2026-11-24 REST から Connect へ / Moved from REST to Connect
 **日本語**: aruaru-llm の REST が VPS で 404 になっていたため、拡張機能の呼び出しを Connect(POST、`aruaru_llm.v1.Llm/{MediaSearch,GenerateWithSearch,ChatProvidersCompletePriority}`)へ移行。未使用になった `getJson` を削除。
 **English**: aruaru-llm's REST now returns 404 on the VPS, so the extension's calls moved to Connect (POST, `aruaru_llm.v1.Llm/{MediaSearch,GenerateWithSearch,ChatProvidersCompletePriority}`); the unused `getJson` was removed.
+
+## 2026-11-24 v0.1.1 公開 / Release v0.1.1
+**日本語**: aruaru-llm の Connect 化に合わせた版 0.1.1 を、`.vsix` として GitHub Release に公開。VS Code Marketplace への公開は、発行者トークン(ユーザー自身のもの)が要るため未実施。インストールは「VSIX からのインストール」。
+**English**: Version 0.1.1, matching aruaru-llm's Connect migration, is published as a `.vsix` on GitHub Releases. Publishing to the VS Code Marketplace is not done: it needs the user's own publisher token. Install via "Install from VSIX".
