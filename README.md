@@ -1,3 +1,5 @@
+> Latest translations / 翻訳の最新版: [0-LATEST-TRANSLATIONS.md](0-LATEST-TRANSLATIONS.md)
+
 # Maid Cafe Programming School (VS Code拡張機能)
 
 [`open-english`](https://github.com/aon-co-jp/open-english)のブラウザ版チャットだけでは、
