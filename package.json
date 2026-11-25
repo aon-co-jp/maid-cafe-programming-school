@@ -149,9 +149,9 @@
     "publish": "vsce publish"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
+    "@types/node": "^26.6.7",
     "@types/vscode": "^1.85.0",
-    "@vscode/vsce": "^3.0.0",
-    "typescript": "^5.4.0"
+    "@vscode/vsce": "^4.1.1",
+    "typescript": "^7.0.2"
   }
 }

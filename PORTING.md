@@ -219,3 +219,7 @@ GitHub-repo introduction page hosted under `easy-web.tokyo`.
 - **Missing**: (1) an ordered curriculum with levels; (2) auto-graded exercises (run tests locally, return pass/fail and hints); (3) progress records and next-unit suggestions; (4) human support (reviews, Q&A, certificates, a learner community); (5) accounts, enrollment management and payment.
 - **Weak dependency**: the AI teacher requires aruaru-llm to be running; no questions can be asked while it is down.
 - **Next step (not started)**: build one small auto-graded exercise (run tests locally, pass/fail). Progress records then only need to store that result.
+
+## 2026-11-25 TypeScript 7・@types/node 26・vsce 4
+- 日本語: devDependencies を typescript 7・@types/node 26・@vscode/vsce 4 へ更新。TypeScript 6 以降は `types` の既定が空になり Node の型を自動で読まないため、`tsconfig.json` に `"types": ["node", "vscode"]` を追加。`npm run compile` 成功。拡張機能の実機(VS Code)での動作確認は未実施。
+- English: devDependencies moved to typescript 7, @types/node 26 and @vscode/vsce 4. Since TypeScript 6 the default `types` is empty, so Node typings are no longer loaded automatically; added `"types": ["node", "vscode"]` to `tsconfig.json`. `npm run compile` passes; not yet tried inside a real VS Code.
