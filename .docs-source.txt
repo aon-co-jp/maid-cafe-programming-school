@@ -1,3 +1,3 @@
 source: aon-co-jp/maid-cafe-programming-school
-commit: 1664f3fa863bfd5230e9088d8131b2539fab9325
-updated: 2026-11-27T05:58:04Z
+commit: 760a85cb11221f19c8ffbd86106f1e5006d79bc7
+updated: 2026-11-27T06:01:53Z
